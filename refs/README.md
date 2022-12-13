@@ -2,7 +2,7 @@ This is the README file for the `refs` directory. We can use it to draft literat
 
 [Location Conditional Image Generation using Generative Adversarial Networks](https://neurips2019creativity.github.io/doc/Location%20Conditional%20Image%20Generation%20using%20Generative%20Adversarial%20Networks.pdf)
 
-[Spatially Multi-conditional Image Generation](https://arxiv.org/abs/2203.13812)
+[Spatially Multi-conditional Image Generation](https://arxiv.org/abs/2203.13812.pdf)
 
 [Image-to-Image Translation with Conditional Adversarial Networks](https://arxiv.org/pdf/1611.07004.pdf)
 
