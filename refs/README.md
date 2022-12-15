@@ -11,3 +11,7 @@ This is the README file for the `refs` directory. We can use it to draft literat
 [Spatially-Adaptive Pixelwise Networks for Fast Image Translation](https://arxiv.org/pdf/2012.02992.pdf)
 
 [Pose Guided Person Image Generation](https://proceedings.neurips.cc/paper/2017/file/34ed066df378efacc9b924ec161e7639-Paper.pdf)
+
+[Robust Histopathology Image Analysis: to Label or to Synthesize?](https://www3.cs.stonybrook.edu/~cvl/content/papers/2019/Hou_CVPR19.pdf)
+
+[Efficient Self-Supervision using Patch-based Contrastive Learning for Histopathology Image Segmentation](https://arxiv.org/pdf/2208.10779.pdf)
