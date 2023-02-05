@@ -35,11 +35,42 @@ from util import html
 import matplotlib.pyplot as plt
 import h5py
 import numpy as np
+import torch
 
 try:
     import wandb
 except ImportError:
     print('Warning: wandb package cannot be found. The option "--use_wandb" will result in error.')
+
+def run_inference(model, data, input_size=1000, patch_size=256, overlap=8):
+    if patch_size == input_size:
+        model.set_input(data)  # unpack data from data loader
+        model.test()           # run inference
+        visuals = model.get_current_visuals()  # get image results
+        return visuals
+    else:
+        i = 0
+        return_visuals = dict()
+        for i in np.arange(0, input_size, patch_size-overlap):
+            for j in np.arange(0, input_size, patch_size-overlap):
+                patch_data = dict()
+                for key in data.keys():
+                    if len(data[key].shape) == 4:
+                        print(key, data[key].shape)
+                        assert data[key].shape[2] == data[key].shape[3], 'only support w=h for now.'
+                        patch_data[key] = data[key][:, :, i:i+patch_size, j:j+patch_size]
+                        print(i, key, patch_data[key].shape)
+                    else:
+                        patch_data[key] = data[key]
+                model.set_input(patch_data)
+                model.test()
+                patch_visuals = model.get_current_visuals()
+                for vkey in patch_visuals.keys():
+                    b, c, _, _ = patch_visuals[vkey].shape
+                    if vkey not in return_visuals:
+                        return_visuals[vkey] = torch.zeros(b, c, input_size, input_size)
+                    return_visuals[vkey][:, :, i:i+patch_size, j:j+patch_size] = patch_visuals[vkey]
+        return return_visuals
 
 
 if __name__ == '__main__':
@@ -73,15 +104,17 @@ if __name__ == '__main__':
     print(opt.dataroot)
     input_name = opt.dataroot
     output_name = input_name.split('/')[-1].split('.h5')[0]
-    hf = h5py.File('%s/%s_cyclegan.h5'%(web_dir, output_name), 'w')
+    hf = h5py.File('%s/%s_cyclegan_patch256.h5'%(web_dir, output_name), 'w')
     input_masks, mask2images = list(), list()
     input_images, image2masks = list(), list()
     for i, data in enumerate(dataset):
         if i >= opt.num_test:  # only apply our model to opt.num_test images.
             break
-        model.set_input(data)  # unpack data from data loader
-        model.test()           # run inference
-        visuals = model.get_current_visuals()  # get image results
+        
+        visuals = run_inference(model, data, 1000, 256, 8)
+        #model.set_input(data)  # unpack data from data loader
+        #model.test()           # run inference
+        #visuals = model.get_current_visuals()  # get image results
         #img_path = model.get_image_paths()     # get image paths
         if i % 5 == 0:  # save images to an HTML file
             print('processing (%04d)-th image... ' % (i))
@@ -109,6 +142,7 @@ if __name__ == '__main__':
             plt.imshow(image)
             plt.axis('off')
         plt.savefig('%s/images/%d.jpg'%(web_dir, i), dpi=200)
+        plt.close()
         
 
     input_masks = np.vstack(input_masks)

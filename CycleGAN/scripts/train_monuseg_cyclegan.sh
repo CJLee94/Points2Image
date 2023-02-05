@@ -21,3 +21,8 @@ python test.py --dataroot ~/redwood_research/processed_data/MoNuSeg_test_v3.h5 \
 --dataset_mode monuseg \
 --name cyclegan_gen_v3_color --model cycle_gan --phase test --no_dropout \
 --preprocess '' --input_nc 3 
+
+python test.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v3.h5 \
+--dataset_mode monuseg \
+--name cyclegan_gen_v3_color --model cycle_gan --phase test --no_dropout \
+--preprocess '' --input_nc 3 

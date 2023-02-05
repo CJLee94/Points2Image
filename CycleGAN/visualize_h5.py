@@ -1,7 +1,7 @@
 import h5py
 import matplotlib.pyplot as plt
 
-path = './results/cyclegan_gen_v3_color/test_latest/MoNuSeg_test_v3_cyclegan.h5'
+path = './results/cyclegan_gen_v3_color/test_latest/MoNuSeg_train_v3_cyclegan.h5'
 hf = h5py.File(path, 'r')
 
 fig = plt.figure()
@@ -11,4 +11,4 @@ for i, key in enumerate(hf.keys()):
     plt.imshow((hf[key][0] + 1.)/2.)
     plt.title(key)
 
-plt.savefig('./results/cyclegan_gen_v3_color/test_latest/images/h5_sanity_check.png')
+plt.savefig('./results/cyclegan_gen_v3_color/test_latest/images/h5_sanity_check_train.png')
