@@ -1,2 +1,3 @@
 CycleGAN/results/*
 CycleGAN/checkpoints/*
+CycleGAN/train_images/*
