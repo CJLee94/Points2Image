@@ -93,6 +93,10 @@ def get_transform(opt, params=None, grayscale=False, method=transforms.Interpola
             transform_list.append(transforms.RandomCrop(opt.crop_size))
         else:
             transform_list.append(transforms.Lambda(lambda img: __crop(img, params['crop_pos'], opt.crop_size)))
+    
+    if 'affine' in opt.preprocess:
+        transform_list.append(transforms.RandomAffine(degrees=(-180, 180), 
+                                                      translate=(0.1, 0.3), scale=(0.5, 0.75)))
 
     if opt.preprocess == 'none':
         transform_list.append(transforms.Lambda(lambda img: __make_power_2(img, base=4, method=method)))
