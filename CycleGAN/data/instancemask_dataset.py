@@ -60,10 +60,8 @@ class InstanceMaskDataset(BaseDataset):
         """
         hd = h5py.File(self.dir, 'r')
 
-        #TODO:change the key below
+        
         A_img = hd['gen_hvinstance_masks'][index]
-        #TODO: change the normalization below
-        # A_img = A_img.astype(np.float32) / 255. - 1.0
         A_img = np.transpose(A_img, (2,0,1)).astype(np.float32)
         A_img = torch.from_numpy(A_img)
 
