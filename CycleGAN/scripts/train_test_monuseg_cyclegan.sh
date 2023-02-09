@@ -37,7 +37,7 @@ python test.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v3.h5 
 
 # train with cyclegan synthesis on the fly
 python train_synthdata.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v3.h5 \
---dataset_mode monuseg --name cyclegan_gen_v3_color --model cycle_gan \
+--dataset_mode monuseg --name cyclegan_gen_v3_color_affine_aug --model cycle_gan \
 --pool_size 50 --no_dropout --phase train --preprocess crop,affine \
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
 --n_epochs_decay 300 --input_nc 3
