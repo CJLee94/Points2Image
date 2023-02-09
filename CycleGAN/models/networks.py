@@ -117,7 +117,9 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, init_type='normal', init_gain=0.02, gpu_ids=[]):
+def define_G(input_nc, output_nc, ngf, netG, 
+             norm='batch', use_dropout=False, final_activation='tanh',
+             init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Create a generator
 
     Parameters:
@@ -152,9 +154,11 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'resnet_6blocks':
         net = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6)
     elif netG == 'unet_128':
-        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, 
+                            final_activation=final_activation)
     elif netG == 'unet_256':
-        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+        net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout,
+                            final_activation=final_activation)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
@@ -437,7 +441,8 @@ class ResnetBlock(nn.Module):
 class UnetGenerator(nn.Module):
     """Create a Unet-based generator"""
 
-    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False,
+                 final_activation='tanh'):
         """Construct a Unet generator
         Parameters:
             input_nc (int)  -- the number of channels in input images
@@ -459,12 +464,28 @@ class UnetGenerator(nn.Module):
         unet_block = UnetSkipConnectionBlock(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
         unet_block = UnetSkipConnectionBlock(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
         unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
-        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer)  # add the outermost layer
+        self.model = UnetSkipConnectionBlock(output_nc, ngf, input_nc=input_nc, 
+                                             submodule=unet_block, outermost=True, outermost_activation=final_activation,
+                                             norm_layer=norm_layer)  # add the outermost layer
 
     def forward(self, input):
         """Standard forward"""
         return self.model(input)
 
+
+class Tanh_Sigmoid(nn.Module):
+
+    def __init__(self):
+        super(Tanh_Sigmoid, self).__init__()
+        self.fn_tanh = nn.Tanh()
+        self.fn_sigmoid = nn.Sigmoid()
+    
+    def forward(self, input):
+        hv_map = input[:, :2, ...]  # for hv map use tanh() activation
+        seg_map = input[:, 2:3, ...]  # for binary mask use sigmoid()
+        hv_map = self.fn_tanh(hv_map)
+        seg_map = self.fn_sigmoid(seg_map)
+        return torch.cat([hv_map, seg_map], axis=1)
 
 class UnetSkipConnectionBlock(nn.Module):
     """Defines the Unet submodule with skip connection.
@@ -473,7 +494,8 @@ class UnetSkipConnectionBlock(nn.Module):
     """
 
     def __init__(self, outer_nc, inner_nc, input_nc=None,
-                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False,
+                 outermost_activation='tanh'):
         """Construct a Unet submodule with skip connections.
 
         Parameters:
@@ -506,7 +528,11 @@ class UnetSkipConnectionBlock(nn.Module):
                                         kernel_size=4, stride=2,
                                         padding=1)
             down = [downconv]
-            up = [uprelu, upconv, nn.Tanh()]
+            up = [uprelu, upconv]  #, nn.Tanh()]
+            if outermost_activation == 'tanh':
+                up += [nn.Tanh()]
+            elif outermost_activation == 'Tanh_Sigmoid':
+                up += [Tanh_Sigmoid()]
             model = down + [submodule] + up
         elif innermost:
             upconv = nn.ConvTranspose2d(inner_nc, outer_nc,
