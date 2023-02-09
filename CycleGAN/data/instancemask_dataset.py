@@ -61,10 +61,10 @@ class InstanceMaskDataset(BaseDataset):
         hd = h5py.File(self.dir, 'r')
 
         #TODO:change the key below
-        A_img = hd['gen_color_masks'][index]
+        A_img = hd['gen_hvinstance_masks'][index]
         #TODO: change the normalization below
-        A_img = A_img.astype(np.float32) / 255. - 1.0
-        A_img = np.transpose(A_img, (2,0,1))
+        # A_img = A_img.astype(np.float32) / 255. - 1.0
+        A_img = np.transpose(A_img, (2,0,1)).astype(np.float32)
         A_img = torch.from_numpy(A_img)
 
         B_img = hd['images'][index]
@@ -82,4 +82,4 @@ class InstanceMaskDataset(BaseDataset):
     def __len__(self):
         """Return the total number of images in the dataset."""
         hd = h5py.File(self.dir, 'r')
-        return hd['binary_masks'].shape[0]
+        return hd['images'].shape[0]
