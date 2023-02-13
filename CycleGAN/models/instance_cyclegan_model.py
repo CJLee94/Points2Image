@@ -93,7 +93,7 @@ class InstanceCycleganModel(BaseModel):
                                         init_type=opt.init_type, 
                                         init_gain=opt.init_gain, 
                                         gpu_ids=self.gpu_ids,
-                                        final_activation='sigmoid')
+                                        final_activation='tanh_sigmoid')
 
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,

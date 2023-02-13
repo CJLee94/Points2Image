@@ -373,8 +373,10 @@ class ResnetGenerator(nn.Module):
         model += [nn.Conv2d(ngf, output_nc, kernel_size=7, padding=0)]
         if final_activation == 'tanh':
             model += [nn.Tanh()]
-        else:
+        elif final_activation == 'tanh_sigmoid':
             model += [Tanh_Sigmoid()]
+        else:
+            raise NotImplementedError('The final activation function [%s] in the ResnetGenerator is not implemented ' % final_activation)
 
         self.model = nn.Sequential(*model)
 
@@ -536,7 +538,7 @@ class UnetSkipConnectionBlock(nn.Module):
             up = [uprelu, upconv]  #, nn.Tanh()]
             if outermost_activation == 'tanh':
                 up += [nn.Tanh()]
-            elif outermost_activation == 'Tanh_Sigmoid':
+            elif outermost_activation == 'tanh_sigmoid':
                 up += [Tanh_Sigmoid()]
             model = down + [submodule] + up
         elif innermost:
