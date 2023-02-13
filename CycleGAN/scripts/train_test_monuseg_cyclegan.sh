@@ -41,12 +41,13 @@ python train_synthdata.py --dataroot ~/redwood_research/processed_data/MoNuSeg_t
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
 --n_epochs_decay 300 --input_nc 3
 
-# train with hv_map+seg
-python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_vxxx.h5 \
---dataset_mode instancemask --name cyclegan_hv_map --model instance_cyclegan \
---pool_size 50 --no_dropout --phase train --preprocess crop,affine \
+# train with hv_map+seg, unet generator
+python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_enhanced.h5 \
+--dataset_mode instancemask --name cyclegan_hv_map --model instancecyclegan \
+--netG unet_256 \
+--pool_size 50 --no_dropout --phase train --preprocess crop \
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
---n_epochs_decay 300 --input_nc 3
+--n_epochs_decay 300 --input_nc 3 
 
 # train with hv_map+seg, OASIS generator
 python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_enhanced.h5 \
@@ -54,5 +55,5 @@ python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_en
 --netG oasis_256 \
 --pool_size 50 --no_dropout --phase train --preprocess crop \
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
---n_epochs_decay 300 --input_nc 3
+--n_epochs_decay 300 --input_nc 3 
 
