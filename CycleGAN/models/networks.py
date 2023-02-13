@@ -656,6 +656,7 @@ class PixelDiscriminator(nn.Module):
 
 
 class OASIS_Generator(nn.Module):
+    """OASIS generator modified from https://github.com/boschresearch/OASIS/blob/master/models/generator.py#L7 """
     def __init__(self, opt, final_activation):
         super().__init__()
         self.opt = opt
@@ -676,6 +677,8 @@ class OASIS_Generator(nn.Module):
             self.final_act = nn.Tanh()
         elif final_activation == 'tanh_sigmoid':
             self.final_act = Tanh_Sigmoid()
+        else:
+            raise NotImplementedError
 
     def compute_latent_vector_size(self, opt):
         w = opt.crop_size // (2**(opt.num_res_blocks-1))
@@ -699,7 +702,6 @@ class OASIS_Generator(nn.Module):
             if i < self.opt.num_res_blocks-1:
                 x = self.up(x)
         x = self.conv_img(F.leaky_relu(x, 2e-1))
-
         x = self.final_act(x)
         return x
 
