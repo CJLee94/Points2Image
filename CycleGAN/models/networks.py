@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
+from models import norms
 
 
 ###############################################################################
@@ -117,7 +119,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=[]):
     return net
 
 
-def define_G(input_nc, output_nc, ngf, netG, 
+def define_G(opt, input_nc, output_nc, ngf, netG, 
              norm='batch', use_dropout=False, final_activation='tanh',
              init_type='normal', init_gain=0.02, gpu_ids=[]):
     """Create a generator
@@ -159,6 +161,10 @@ def define_G(input_nc, output_nc, ngf, netG,
     elif netG == 'unet_256':
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout,
                             final_activation=final_activation)
+    elif netG == 'oasis_256':
+        net = OASIS_Generator(opt,
+                              final_activation=final_activation)
+        print(net)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
@@ -531,7 +537,7 @@ class UnetSkipConnectionBlock(nn.Module):
             up = [uprelu, upconv]  #, nn.Tanh()]
             if outermost_activation == 'tanh':
                 up += [nn.Tanh()]
-            elif outermost_activation == 'Tanh_Sigmoid':
+            elif outermost_activation == 'tanh_sigmoid':
                 up += [Tanh_Sigmoid()]
             model = down + [submodule] + up
         elif innermost:
@@ -640,3 +646,85 @@ class PixelDiscriminator(nn.Module):
     def forward(self, input):
         """Standard forward."""
         return self.net(input)
+
+
+class OASIS_Generator(nn.Module):
+    def __init__(self, opt, final_activation):
+        super().__init__()
+        self.opt = opt
+        sp_norm = norms.get_spectral_norm(opt)
+        ch = opt.ngf
+        self.channels = [16*ch, 16*ch, 16*ch, 8*ch, 4*ch, 2*ch, 1*ch]
+        self.init_W, self.init_H = self.compute_latent_vector_size(opt)
+        self.conv_img = nn.Conv2d(self.channels[-1], 3, 3, padding=1)
+        self.up = nn.Upsample(scale_factor=2)
+        self.body = nn.ModuleList([])
+        for i in range(len(self.channels)-1):
+            self.body.append(ResnetBlock_with_SPADE(self.channels[i], self.channels[i+1], opt))
+        if not self.opt.no_3dnoise:
+            self.fc = nn.Conv2d(self.opt.input_nc + self.opt.z_dim, 16 * ch, 3, padding=1)
+        else:
+            self.fc = nn.Conv2d(self.opt.input_nc, 16 * ch, 3, padding=1)
+        if final_activation == 'tanh':
+            self.final_act = nn.Tanh()
+        elif final_activation == 'tanh_sigmoid':
+            self.final_act = Tanh_Sigmoid()
+
+    def compute_latent_vector_size(self, opt):
+        w = opt.crop_size // (2**(opt.num_res_blocks-1))
+        h = w #round(w / opt.aspect_ratio)
+        return h, w
+
+    def forward(self, input, z=None):
+        seg = input
+        if self.opt.gpu_ids != "-1":
+            seg.cuda()
+        if not self.opt.no_3dnoise:
+            dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
+            z = torch.randn(seg.size(0), self.opt.z_dim, dtype=torch.float32, device=dev)
+            z = z.view(z.size(0), self.opt.z_dim, 1, 1)
+            z = z.expand(z.size(0), self.opt.z_dim, seg.size(2), seg.size(3))
+            seg = torch.cat((z, seg), dim = 1)
+        x = F.interpolate(seg, size=(self.init_W, self.init_H))
+        x = self.fc(x)
+        for i in range(self.opt.num_res_blocks):
+            x = self.body[i](x, seg)
+            if i < self.opt.num_res_blocks-1:
+                x = self.up(x)
+        x = self.conv_img(F.leaky_relu(x, 2e-1))
+
+        x = self.final_act(x)
+        return x
+
+
+class ResnetBlock_with_SPADE(nn.Module):
+    def __init__(self, fin, fout, opt):
+        super().__init__()
+        self.opt = opt
+        self.learned_shortcut = (fin != fout)
+        fmiddle = min(fin, fout)
+        sp_norm = norms.get_spectral_norm(opt)
+        self.conv_0 = sp_norm(nn.Conv2d(fin, fmiddle, kernel_size=3, padding=1))
+        self.conv_1 = sp_norm(nn.Conv2d(fmiddle, fout, kernel_size=3, padding=1))
+        if self.learned_shortcut:
+            self.conv_s = sp_norm(nn.Conv2d(fin, fout, kernel_size=1, bias=False))
+
+        spade_conditional_input_dims = opt.input_nc
+        if not opt.no_3dnoise:
+            spade_conditional_input_dims += opt.z_dim
+
+        self.norm_0 = norms.SPADE(opt, fin, spade_conditional_input_dims)
+        self.norm_1 = norms.SPADE(opt, fmiddle, spade_conditional_input_dims)
+        if self.learned_shortcut:
+            self.norm_s = norms.SPADE(opt, fin, spade_conditional_input_dims)
+        self.activ = nn.LeakyReLU(0.2, inplace=True)
+
+    def forward(self, x, seg):
+        if self.learned_shortcut:
+            x_s = self.conv_s(self.norm_s(x, seg))
+        else:
+            x_s = x
+        dx = self.conv_0(self.activ(self.norm_0(x, seg)))
+        dx = self.conv_1(self.activ(self.norm_1(dx, seg)))
+        out = x_s + dx
+        return out
