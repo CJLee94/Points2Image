@@ -25,8 +25,9 @@ class WeightedBCE(nn.Module):
 
     def forward(self, logit_pixel, truth_pixel):
         # print("====",logit_pixel.size())
-        logit = logit_pixel.view(-1)
-        truth = truth_pixel.view(-1)
+        batch_size = truth_pixel.size()[0]
+        logit = logit_pixel.view(batch_size, -1)
+        truth = truth_pixel.view(batch_size, -1)
         assert (logit.shape == truth.shape)
         loss = F.binary_cross_entropy(logit, truth, reduction='none')
         pos = (truth > 0.5).float()
