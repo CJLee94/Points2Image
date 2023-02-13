@@ -3,10 +3,14 @@ import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-import monai
+from utils import WeightedDiceBCE
 
 
+<<<<<<< HEAD:CycleGAN/models/instancecyclegan_model.py
 class InstanceCycleGANModel(BaseModel):
+=======
+class InstanceCycleganModel(BaseModel):
+>>>>>>> feda8ad289629c11aa5c926fe686837e247d1c67:CycleGAN/models/instance_cyclegan_model.py
     """
     This class implements the CycleGAN model, for learning image-to-image translation without paired data.
 
@@ -73,6 +77,7 @@ class InstanceCycleGANModel(BaseModel):
         # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
 
         # A --> B mask to image 
+<<<<<<< HEAD:CycleGAN/models/instancecyclegan_model.py
         self.netG_A = networks.define_G(opt, opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, 'tanh', opt.init_type, opt.init_gain, self.gpu_ids,
                                         )
@@ -80,6 +85,29 @@ class InstanceCycleGANModel(BaseModel):
         self.netG_B = networks.define_G(opt, opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
                                         not opt.no_dropout, 'tanh_sigmoid', opt.init_type, opt.init_gain, self.gpu_ids,
                                         )
+=======
+        self.netG_A = networks.define_G(input_nc=opt.input_nc, 
+                                        output_nc=opt.output_nc, 
+                                        ngf=opt.ngf, 
+                                        netG=opt.netG, 
+                                        norm=opt.norm,
+                                        use_dropout=not opt.no_dropout, 
+                                        init_type=opt.init_type, 
+                                        init_gain=opt.init_gain, 
+                                        gpu_ids=self.gpu_ids,
+                                        final_activation='tanh')
+        # B --> A image to masks, separately process the activation.
+        self.netG_B = networks.define_G(input_nc=opt.output_nc, 
+                                        output_nc=opt.input_nc, 
+                                        ngf=opt.ngf, 
+                                        netG=opt.netG, 
+                                        norm=opt.norm,
+                                        use_dropout=not opt.no_dropout, 
+                                        init_type=opt.init_type, 
+                                        init_gain=opt.init_gain, 
+                                        gpu_ids=self.gpu_ids,
+                                        final_activation='tanh_sigmoid')
+>>>>>>> feda8ad289629c11aa5c926fe686837e247d1c67:CycleGAN/models/instance_cyclegan_model.py
 
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
@@ -97,8 +125,7 @@ class InstanceCycleGANModel(BaseModel):
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             # define segmentation loss: https://docs.monai.io/en/stable/losses.html#diceceloss 
-            self.criterionSeg = monai.losses.DiceCELoss(include_background=True, sigmoid=False,
-                                                        lambda_dice=1.0, lambda_ce=1.0)
+            self.criterionSeg = WeightedDiceBCE(dice_weight=0.5, BCE_weight=0.5)
             # initialize optimizers; schedulers will be automatically created by function <BaseModel.setup>.
             self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG_A.parameters(), self.netG_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
             self.optimizer_D = torch.optim.Adam(itertools.chain(self.netD_A.parameters(), self.netD_B.parameters()), lr=opt.lr, betas=(opt.beta1, 0.999))
