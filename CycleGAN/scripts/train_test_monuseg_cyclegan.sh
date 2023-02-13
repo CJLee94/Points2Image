@@ -49,7 +49,7 @@ python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_vxxx.
 --n_epochs_decay 300 --input_nc 3
 
 # train with hv_map+seg, OASIS generator
-python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v3.h5 \
+python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_enhanced.h5 \
 --dataset_mode instancemask --name oasis_cyclegan_hv_map --model instancecyclegan \
 --netG oasis_256 \
 --pool_size 50 --no_dropout --phase train --preprocess crop \
