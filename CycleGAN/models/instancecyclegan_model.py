@@ -6,11 +6,7 @@ from . import networks
 from utils import WeightedDiceBCE
 
 
-<<<<<<< HEAD:CycleGAN/models/instancecyclegan_model.py
 class InstanceCycleGANModel(BaseModel):
-=======
-class InstanceCycleganModel(BaseModel):
->>>>>>> feda8ad289629c11aa5c926fe686837e247d1c67:CycleGAN/models/instance_cyclegan_model.py
     """
     This class implements the CycleGAN model, for learning image-to-image translation without paired data.
 
@@ -77,37 +73,31 @@ class InstanceCycleganModel(BaseModel):
         # Code (vs. paper): G_A (G), G_B (F), D_A (D_Y), D_B (D_X)
 
         # A --> B mask to image 
-<<<<<<< HEAD:CycleGAN/models/instancecyclegan_model.py
-        self.netG_A = networks.define_G(opt, opt.input_nc, opt.output_nc, opt.ngf, opt.netG, opt.norm,
-                                        not opt.no_dropout, 'tanh', opt.init_type, opt.init_gain, self.gpu_ids,
+        self.netG_A = networks.define_G(opt,
+                                        opt.input_nc,
+                                        opt.output_nc,
+                                        opt.ngf,
+                                        opt.netG,
+                                        opt.norm,
+                                        not opt.no_dropout,
+                                        'tanh',
+                                        opt.init_type,
+                                        opt.init_gain, 
+                                        self.gpu_ids,
                                         )
         # B --> A image to masks, separately process the activation.
-        self.netG_B = networks.define_G(opt, opt.output_nc, opt.input_nc, opt.ngf, opt.netG, opt.norm,
-                                        not opt.no_dropout, 'tanh_sigmoid', opt.init_type, opt.init_gain, self.gpu_ids,
+        self.netG_B = networks.define_G(opt,
+                                        opt.output_nc,
+                                        opt.input_nc,
+                                        opt.ngf,
+                                        'unet_256',  # fix the image to mask part to unet for now.
+                                        opt.norm,
+                                        not opt.no_dropout,
+                                        'tanh_sigmoid',
+                                        opt.init_type,
+                                        opt.init_gain, 
+                                        self.gpu_ids,
                                         )
-=======
-        self.netG_A = networks.define_G(input_nc=opt.input_nc, 
-                                        output_nc=opt.output_nc, 
-                                        ngf=opt.ngf, 
-                                        netG=opt.netG, 
-                                        norm=opt.norm,
-                                        use_dropout=not opt.no_dropout, 
-                                        init_type=opt.init_type, 
-                                        init_gain=opt.init_gain, 
-                                        gpu_ids=self.gpu_ids,
-                                        final_activation='tanh')
-        # B --> A image to masks, separately process the activation.
-        self.netG_B = networks.define_G(input_nc=opt.output_nc, 
-                                        output_nc=opt.input_nc, 
-                                        ngf=opt.ngf, 
-                                        netG=opt.netG, 
-                                        norm=opt.norm,
-                                        use_dropout=not opt.no_dropout, 
-                                        init_type=opt.init_type, 
-                                        init_gain=opt.init_gain, 
-                                        gpu_ids=self.gpu_ids,
-                                        final_activation='tanh_sigmoid')
->>>>>>> feda8ad289629c11aa5c926fe686837e247d1c67:CycleGAN/models/instance_cyclegan_model.py
 
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
