@@ -1,3 +1,4 @@
+import re
 import argparse
 import os
 from util import util
@@ -31,7 +32,8 @@ class BaseOptions():
         parser.add_argument('--ngf', type=int, default=64, help='# of gen filters in the last conv layer')
         parser.add_argument('--ndf', type=int, default=64, help='# of discrim filters in the first conv layer')
         parser.add_argument('--netD', type=str, default='n_layers', help='specify discriminator architecture [basic | n_layers | pixel]. The basic model is a 70x70 PatchGAN. n_layers allows you to specify the layers in the discriminator')
-        parser.add_argument('--netG', type=str, default='unet_256', help='specify generator architecture [resnet_9blocks | resnet_6blocks | unet_256 | unet_128]')
+        parser.add_argument('--netG_B', type=str, default='resnet_9blocks', help='specify generator architecture [resnet_9blocks | resnet_6blocks | unet_256 | unet_128]')
+        parser.add_argument('--netG_A', type=str, default='resnet_9blocks', help='specify generator architecture [resnet_9blocks | resnet_6blocks | unet_256 | unet_128]')
         parser.add_argument('--n_layers_D', type=int, default=3, help='only used if netD==n_layers')
         parser.add_argument('--norm', type=str, default='instance', help='instance normalization or batch normalization [instance | batch | none]')
         parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal | xavier | kaiming | orthogonal]')
@@ -147,3 +149,75 @@ class BaseOptions():
 
         self.opt = opt
         return self.opt
+
+    def load_opt(self):
+        parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        # loading configuration from 'train_opt.txt'
+        parser.add_argument('--train_opt_file', default=None, help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
+
+        args= parser.parse_args()
+
+            
+        if args.train_opt_file is None:
+            raise ValueError('The train_opt_file cannot be None if you want to load the configuration parameters from a file.')
+
+        class opt_class:
+            pass
+
+        opt = opt_class()
+        opt.isTrain = False
+        with open(args.train_opt_file, "r") as f:
+            for line in f:
+                if line == '----------------- Options ---------------\n':
+                    pass
+                elif line == '----------------- End -------------------\n':
+                    pass
+                else:
+                    k = line[:25].strip()
+                    v = re.sub(r"\[default\: \S*\]", "", line[27:].strip(), flags=re.IGNORECASE).strip()
+                    if len(re.findall("\d", v))>0 and len(re.findall('[a-zA-Z_]', v))==0 and k != 'gpu_ids':
+                        if '.' in v:
+                            v = float(v)
+                        else:
+                            v = int(v)
+                    setattr(opt, k, v)
+
+        if opt.suffix:
+            suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
+            opt.name = opt.name + suffix
+
+        # self.print_options(opt)
+
+        # set gpu ids
+        str_ids = opt.gpu_ids.split(',')
+        opt.gpu_ids = []
+        for str_id in str_ids:
+            id = int(str_id)
+            if id >= 0:
+                opt.gpu_ids.append(id)
+        if len(opt.gpu_ids) > 0:
+            torch.cuda.set_device(opt.gpu_ids[0])
+
+        if opt.max_dataset_size == "inf":
+            opt.max_dataset_size = float("inf")
+        return opt
+        
+        
+# opt.isTrain = self.isTrain   # train or test
+
+#         # process opt.suffix
+#         if opt.suffix:
+#             suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
+#             opt.name = opt.name + suffix
+
+#         self.print_options(opt)
+
+#         # set gpu ids
+#         str_ids = opt.gpu_ids.split(',')
+#         opt.gpu_ids = []
+#         for str_id in str_ids:
+#             id = int(str_id)
+#             if id >= 0:
+#                 opt.gpu_ids.append(id)
+#         if len(opt.gpu_ids) > 0:
+#             torch.cuda.set_device(opt.gpu_ids[0])

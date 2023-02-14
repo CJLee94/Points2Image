@@ -77,7 +77,7 @@ class InstanceCycleGANModel(BaseModel):
                                         opt.input_nc,
                                         opt.output_nc,
                                         opt.ngf,
-                                        opt.netG,
+                                        opt.netG_A,
                                         opt.norm,
                                         not opt.no_dropout,
                                         'tanh',
@@ -90,7 +90,7 @@ class InstanceCycleGANModel(BaseModel):
                                         opt.output_nc,
                                         opt.input_nc,
                                         opt.ngf,
-                                        'unet_256',  # fix the image to mask part to unet for now.
+                                        opt.netG_B,  # fix the image to mask part to unet for now.
                                         opt.norm,
                                         not opt.no_dropout,
                                         'tanh_sigmoid',
