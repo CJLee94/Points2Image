@@ -8,7 +8,7 @@ import h5py
 import torch
 
 
-class MonuSegDataset(BaseDataset):
+class ColorMaskDataset(BaseDataset):
     """This dataset class can load a set of natural images in RGB, and convert RGB format into (L, ab) pairs in Lab color space.
 
     This dataset is required by pix2pix-based colorization model ('--model colorization')
