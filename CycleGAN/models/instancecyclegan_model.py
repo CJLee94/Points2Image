@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import itertools
 from util.image_pool import ImagePool
 from .base_model import BaseModel
@@ -117,6 +118,11 @@ class InstanceCycleGANModel(BaseModel):
             self.fake_B_pool = ImagePool(opt.pool_size)  # create image buffer to store previously generated images
             # define loss functions
             self.criterionGAN = networks.GANLoss(opt.gan_mode).to(self.device)  # define GAN loss.
+            # define np loss bce+dice: https://github.com/vqdang/hover_net/blob/master/models/hovernet/utils.py
+            self.criterionNP = networks.NPLoss().to(self.device)
+            # define hv loss mse+msge: https://github.com/vqdang/hover_net/blob/master/models/hovernet/utils.py
+            self.criterionHV = networks.HVLoss().to(self.device)
+
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             # define segmentation loss: https://docs.monai.io/en/stable/losses.html#diceceloss 
@@ -136,6 +142,8 @@ class InstanceCycleGANModel(BaseModel):
         hv_map_target = real_A[:, :2, ...]
         seg_map_pred = rec_A[:, 2:3, ...]
         seg_map_target = real_A[:, 2:3, ...]
+        
+        seg_map_target_onehot = (F.one_hot(seg_map_target,))
 
         loss_hv = self.criterionCycle(hv_map_pred, hv_map_target)
         loss_seg = self.criterionSeg(seg_map_pred, seg_map_target)
