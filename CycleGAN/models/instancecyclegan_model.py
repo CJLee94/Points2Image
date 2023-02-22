@@ -138,15 +138,19 @@ class InstanceCycleGANModel(BaseModel):
         rec_A: the input horizontal/vertical mask + segmentation mask (netG_B(netG_A(A)))
         real_A: the groundtruth horizontal/vertical mask + segmentation mask (A)
         """
-        hv_map_pred = rec_A[:, :2, ...]
-        hv_map_target = real_A[:, :2, ...]
+        hv_map_pred = rec_A[:, :2, ...].permute(0, 2, 3, 1).contiguous()
+        hv_map_target = real_A[:, :2, ...].permute(0, 2, 3, 1).contiguous()
         seg_map_pred = rec_A[:, 2:3, ...]
-        seg_map_target = real_A[:, 2:3, ...]
+        seg_map_pred = torch.cat([1-seg_map_pred, seg_map_pred], dim=1).permute(0, 2, 3, 1).contiguous()
+        seg_map_target = real_A[:, 2:3, ...].squeeze(1)
         
-        seg_map_target_onehot = (F.one_hot(seg_map_target,))
+        seg_map_target_onehot = (F.one_hot(seg_map_target.type(torch.int64), num_classes=2)).type(torch.float32)
 
-        loss_hv = self.criterionCycle(hv_map_pred, hv_map_target)
-        loss_seg = self.criterionSeg(seg_map_pred, seg_map_target)
+        # import pdb
+        # pdb.set_trace()
+
+        loss_hv = self.criterionHV(hv_map_target, hv_map_pred, seg_map_target_onehot[...,1])
+        loss_seg = self.criterionNP(seg_map_target_onehot, seg_map_pred)
         return loss_hv + loss_seg
 
     def set_input(self, input):
