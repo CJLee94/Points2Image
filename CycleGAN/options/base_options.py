@@ -180,6 +180,10 @@ class BaseOptions():
                             v = float(v)
                         else:
                             v = int(v)
+                    elif v.lower() == 'true':
+                        v = True
+                    elif v.lower() == 'false':
+                        v = False
                     setattr(opt, k, v)
 
         if opt.suffix:
