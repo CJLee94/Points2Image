@@ -85,6 +85,8 @@ class InstanceCycleGANModel(BaseModel):
                                         opt.init_gain, 
                                         self.gpu_ids,
                                         )
+        print('netG_A')
+        print(self.netG_A)
         # B --> A image to masks, separately process the activation.
         self.netG_B = networks.define_G(opt,
                                         opt.output_nc,
@@ -98,12 +100,15 @@ class InstanceCycleGANModel(BaseModel):
                                         opt.init_gain, 
                                         self.gpu_ids,
                                         )
-
+        print('netG_B')
+        print(self.netG_B)   
         if self.isTrain:  # define discriminators
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
             self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
+            print('netD_A')
+            print(self.netD_A)
 
         if self.isTrain:
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
