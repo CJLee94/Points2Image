@@ -57,3 +57,10 @@ python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_en
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
 --n_epochs_decay 300 --input_nc 3 
 
+
+python test.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_enhanced.h5 \
+--dataset_mode instancemask \
+--name basic_netD_oasis_netGa_resnet_9blocks_netGb_cyclegan --model instancecyclegan \
+--netG_A oasis_256 --netG_B resnet_9blocks \
+--phase test --no_dropout \
+--preprocess '' --input_nc 3 
