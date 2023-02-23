@@ -49,17 +49,18 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8):
         visuals = model.get_current_visuals()  # get image results
         return visuals
     else:
-        i = 0
         return_visuals = dict()
         for i in np.arange(0, input_size, patch_size-overlap):
             for j in np.arange(0, input_size, patch_size-overlap):
+                if i + patch_size > input_size or j + patch_size > input_size:
+                    continue
                 patch_data = dict()
                 for key in data.keys():
                     if len(data[key].shape) == 4:
-                        print(key, data[key].shape)
+                        #print(key, data[key].shape)
                         assert data[key].shape[2] == data[key].shape[3], 'only support w=h for now.'
                         patch_data[key] = data[key][:, :, i:i+patch_size, j:j+patch_size]
-                        print(i, key, patch_data[key].shape)
+                        print(i, i+patch_size, j, j+patch_size, key, patch_data[key].shape)  
                     else:
                         patch_data[key] = data[key]
                 model.set_input(patch_data)
@@ -104,45 +105,47 @@ if __name__ == '__main__':
     print(opt.dataroot)
     input_name = opt.dataroot
     output_name = input_name.split('/')[-1].split('.h5')[0]
-    hf = h5py.File('%s/%s_cyclegan_patch256.h5'%(web_dir, output_name), 'w')
+    hf = h5py.File('%s/%s_cyclegan_fullslice.h5'%(web_dir, output_name), 'w')
     input_masks, mask2images = list(), list()
     input_images, image2masks = list(), list()
-    for i, data in enumerate(dataset):
-        if i >= opt.num_test:  # only apply our model to opt.num_test images.
-            break
-        
-        visuals = run_inference(model, data, 1000, 256, 8)
-        #model.set_input(data)  # unpack data from data loader
-        #model.test()           # run inference
-        #visuals = model.get_current_visuals()  # get image results
-        #img_path = model.get_image_paths()     # get image paths
-        if i % 5 == 0:  # save images to an HTML file
-            print('processing (%04d)-th image... ' % (i))
-        # A --> B
-        input_mask = visuals['real_A'][0].permute(1,2,0).detach().cpu().numpy()
-        output_image = visuals['fake_B'][0].permute(1,2,0).detach().cpu().numpy()
-        input_masks.append(input_mask[None, ...])
-        mask2images.append(output_image[None,...])
+    iter_times = 5
+    for it in range(iter_times):
+        for i, data in enumerate(dataset):
+            if i >= opt.num_test:  # only apply our model to opt.num_test images.
+                break
+            
+            visuals = run_inference(model, data, 1000, 1000, 0) #  256, 8)
+            #model.set_input(data)  # unpack data from data loader
+            #model.test()           # run inference
+            #visuals = model.get_current_visuals()  # get image results
+            #img_path = model.get_image_paths()     # get image paths
+            if i % 5 == 0:  # save images to an HTML file
+                print('processing (%04d)-th image... ' % (i))
+            # A --> B
+            input_mask = visuals['real_A'][0].permute(1,2,0).detach().cpu().numpy()
+            output_image = visuals['fake_B'][0].permute(1,2,0).detach().cpu().numpy()
+            input_masks.append(input_mask[None, ...])
+            mask2images.append(output_image[None,...])
 
-        # B --> A
-        input_image = visuals['real_B'][0].permute(1,2,0).detach().cpu().numpy()
-        output_mask = visuals['fake_A'][0].permute(1,2,0).detach().cpu().numpy()
-        input_images.append(input_image[None, ...])
-        image2masks.append(output_mask[None, ...])
-        
-        
-        plt.figure(figsize=(10,5))
-        for fig_i, key in enumerate(['real_A', 'fake_B', 'rec_A', 
-                                     'real_B', 'fake_A', 'rec_B']):
-            print(key, visuals[key].shape)
-            image = visuals[key][0].permute(1,2,0).detach().cpu().numpy()
-            image = (image + 1.0) / 2.0
-            #visuals[key] = (visuals[key] + 1.0) / 2.0
-            plt.subplot(2, 3, fig_i+1)
-            plt.imshow(image)
-            plt.axis('off')
-        plt.savefig('%s/images/%d.jpg'%(web_dir, i), dpi=200)
-        plt.close()
+            # B --> A
+            input_image = visuals['real_B'][0].permute(1,2,0).detach().cpu().numpy()
+            output_mask = visuals['fake_A'][0].permute(1,2,0).detach().cpu().numpy()
+            input_images.append(input_image[None, ...])
+            image2masks.append(output_mask[None, ...])
+            
+            
+            plt.figure(figsize=(10,5))
+            for fig_i, key in enumerate(['real_A', 'fake_B', 'rec_A', 
+                                        'real_B', 'fake_A', 'rec_B']):
+                print(key, visuals[key].shape)
+                image = visuals[key][0].permute(1,2,0).detach().cpu().numpy()
+                image = (image + 1.0) / 2.0
+                #visuals[key] = (visuals[key] + 1.0) / 2.0
+                plt.subplot(2, 3, fig_i+1)
+                plt.imshow(image)
+                plt.axis('off')
+            plt.savefig('%s/images_new/%d_sample%d.jpg'%(web_dir, i, it), dpi=500)
+            plt.close()
         
 
     input_masks = np.vstack(input_masks)
@@ -152,10 +155,10 @@ if __name__ == '__main__':
     
     # groups_per_subj = np.vstack(groups_per_subj)
     print(input_masks.shape, mask2images.shape, input_images.shape, image2masks.shape)
-    hf['input_masks'] = input_masks
-    hf['mask2images'] = mask2images
-    hf['input_images'] = input_images
-    hf['image2masks'] = image2masks
-    hf.close()
+    #hf['input_masks'] = input_masks
+    #hf['mask2images'] = mask2images
+    #hf['input_images'] = input_images
+    #hf['image2masks'] = image2masks
+    #hf.close()
         #save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb)
     #webpage.save()  # save the HTML
