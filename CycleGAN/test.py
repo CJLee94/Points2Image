@@ -155,10 +155,10 @@ if __name__ == '__main__':
     
     # groups_per_subj = np.vstack(groups_per_subj)
     print(input_masks.shape, mask2images.shape, input_images.shape, image2masks.shape)
-    #hf['input_masks'] = input_masks
-    #hf['mask2images'] = mask2images
-    #hf['input_images'] = input_images
-    #hf['image2masks'] = image2masks
-    #hf.close()
+    hf['input_masks'] = input_masks
+    hf['mask2images'] = mask2images
+    hf['input_images'] = input_images
+    hf['image2masks'] = image2masks
+    hf.close()
         #save_images(webpage, visuals, img_path, aspect_ratio=opt.aspect_ratio, width=opt.display_winsize, use_wandb=opt.use_wandb)
     #webpage.save()  # save the HTML
