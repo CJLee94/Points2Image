@@ -173,7 +173,7 @@ def define_G(opt, input_nc, output_nc, ngf, netG,
                             final_activation=final_activation)
         #print(net)
     elif netG == 'oasis_256':
-        net = OASIS_Generator(opt,
+        net = OASIS_Generator(opt, input_nc, output_nc,
                               final_activation=final_activation)
         #print(net)
     else:
@@ -218,6 +218,8 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
         net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
     elif netD == 'basic_sn':
         net = NLayerDiscriminator_SN(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
+    elif netD == 'dual_basic_sn':
+        net = DualNLayerDiscriminator_SN(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
     elif netD == 'n_layers':  # more options
         net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
     elif netD == 'pixel':     # classify if each pixel is real or fake
@@ -717,9 +719,13 @@ class Tanh_Sigmoid(nn.Module):
     def forward(self, input):
         hv_map = input[:, :2, ...]  # for hv map use tanh() activation
         seg_map = input[:, 2:3, ...]  # for binary mask use sigmoid()
+        extra_map = input[:, 3:, ...]  # if there are other channels
         hv_map = self.fn_tanh(hv_map)
         seg_map = self.fn_sigmoid(seg_map)
-        return torch.cat([hv_map, seg_map], axis=1)
+        extra_map = self.fn_tanh(extra_map)
+        activate = torch.cat([hv_map, seg_map, extra_map], axis=1)
+        assert activate.shape == input.shape
+        return activate
 
 class UnetSkipConnectionBlock(nn.Module):
     """Defines the Unet submodule with skip connection.
@@ -893,6 +899,23 @@ class NLayerDiscriminator_SN(nn.Module):
         return self.model(input)
 
 
+class DualNLayerDiscriminator_SN(nn.Module):
+    def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d):
+        super(DualNLayerDiscriminator_SN, self).__init__()
+        
+        self.hv_map_discriminator = NLayerDiscriminator(input_nc=2, ndf=ndf, n_layers=3,
+                                                        norm_layer=norm_layer)
+        self.seg_map_discriminator = NLayerDiscriminator(input_nc=1, ndf=ndf, n_layers=n_layers,
+                                                         norm_layer=norm_layer)
+    
+    def forward(self, input):
+        hv_map = input[:, :2, ...]
+        hv_pred = self.hv_map_discriminator(hv_map)
+        seg_map = input[:, 2:3, ...]
+        seg_pred = self.seg_map_discriminator(seg_map)
+        return torch.cat((hv_pred, seg_pred), dim=1)
+
+
 class PixelDiscriminator(nn.Module):
     """Defines a 1x1 PatchGAN discriminator (pixelGAN)"""
 
@@ -956,6 +979,10 @@ def draw_value_from_distribution_torch(size, centre=0, default_range=10):
 
 
 def synthseg_torch(mask):
+    """
+    mask: N x N instance mask (from h5)
+    return: N x N grayscale image (unnormalized)
+    """
     n_classes = len(torch.unique(mask))
     tmp_classes_means = draw_value_from_distribution(n_classes, 125, 100)
     tmp_classes_stds = draw_value_from_distribution(n_classes, 15, 10)
@@ -975,24 +1002,56 @@ def synthseg_torch(mask):
     return out_mask   
 
 
+def synthseg_from_hvseg_mask_torch(A_img):
+    """
+    A_img: batch_size x w x h
+    """
+    from util.post_proc import __proc_np_hv
+    np_A = A_img.permute(0,2,3,1).detach().cpu().numpy()
+    # reorder the channel for the __proc_np_hv() function
+    np_seg_hv = np.concatenate([np_A[..., 2:3], np_A[..., :2]], axis=-1)
+    # construct return tensor
+    torch_synthseg = torch.zeros(np_A.shape[:3])
+    for i in range(np_seg_hv.shape[0]):
+        np_instance_mask = __proc_np_hv(np_seg_hv[i])
+        torch_instance_mask = torch.from_numpy(np_instance_mask)
+        synseg_i = synthseg_torch(torch_instance_mask)
+        # normalize to [-1,1]
+        synseg_i = (synseg_i - synseg_i.min()) / (synseg_i.max() - synseg_i.min())
+        synseg_i = 2 * synseg_i - 1
+        torch_synthseg[i] = synseg_i
+    return torch_synthseg.unsqueeze(1)
+
 class OASIS_Generator(nn.Module):
     """OASIS generator modified from https://github.com/boschresearch/OASIS/blob/master/models/generator.py#L7 """
-    def __init__(self, opt, final_activation):
+    def __init__(self, opt, input_nc, output_nc, final_activation):
         super().__init__()
         self.opt = opt
         sp_norm = norms.get_spectral_norm(opt)
         ch = opt.ngf
-        self.channels = [16*ch, 16*ch, 16*ch, 8*ch, 4*ch, 2*ch, 1*ch]
+        if self.opt.num_res_blocks == 6:  # default oasis config.
+            self.channels = [16*ch, 16*ch, 16*ch, 8*ch, 4*ch, 2*ch, 1*ch]
+        elif self.opt.num_res_blocks == 5:
+            self.channels = [16*ch, 16*ch, 8*ch, 4*ch, 2*ch, 1*ch]
+        elif self.opt.num_res_blocks == 4:
+            self.channels = [16*ch, 8*ch, 4*ch, 2*ch, 1*ch]
+        else:
+            raise NotImplementedError
         self.init_W, self.init_H = self.compute_latent_vector_size(opt)
-        self.conv_img = nn.Conv2d(self.channels[-1], 3, 3, padding=1)
+        print('OASIS starting shape', self.init_W, self.init_H)
+        self.conv_img = nn.Conv2d(self.channels[-1], output_nc, 3, padding=1)
         self.up = nn.Upsample(scale_factor=2)
         self.body = nn.ModuleList([])
         for i in range(len(self.channels)-1):
             self.body.append(ResnetBlock_with_SPADE(self.channels[i], self.channels[i+1], opt))
         if not self.opt.no_3dnoise:
-            self.fc = nn.Conv2d(self.opt.input_nc + self.opt.z_dim, 16 * ch, 3, padding=1)
+            self.fc = nn.Conv2d(input_nc + self.opt.z_dim, 16 * ch, 3, padding=1)
         else:
-            self.fc = nn.Conv2d(self.opt.input_nc, 16 * ch, 3, padding=1)
+            if self.opt.use_synthseg:
+                assert self.opt.z_dim == 1, 'z_dim must be 1'
+                self.fc = nn.Conv2d(input_nc + 1, 16 * ch, 3, padding=1)
+            else:
+                self.fc = nn.Conv2d(input_nc, 16 * ch, 3, padding=1)
         if final_activation == 'tanh':
             self.final_act = nn.Tanh()
         elif final_activation == 'tanh_sigmoid':
@@ -1010,11 +1069,17 @@ class OASIS_Generator(nn.Module):
         if self.opt.gpu_ids != "-1":
             seg.cuda()
         if not self.opt.no_3dnoise:
+            assert not self.opt.use_synthseg, "use_synthseg arg must be False"
             dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
             z = torch.randn(seg.size(0), self.opt.z_dim, dtype=torch.float32, device=dev)
             z = z.view(z.size(0), self.opt.z_dim, 1, 1)
             z = z.expand(z.size(0), self.opt.z_dim, seg.size(2), seg.size(3))
             seg = torch.cat((z, seg), dim = 1)
+        else:
+            if self.opt.use_synthseg:
+                dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
+                z_synthseg = synthseg_from_hvseg_mask_torch(input).to(dev)
+                seg = torch.cat((z_synthseg, seg), dim=1)
         x = F.interpolate(seg, size=(self.init_W, self.init_H))
         x = self.fc(x)
         for i in range(self.opt.num_res_blocks):
@@ -1496,7 +1561,10 @@ class ResnetBlock_with_SPADE(nn.Module):
         spade_conditional_input_dims = opt.input_nc
         if not opt.no_3dnoise:
             spade_conditional_input_dims += opt.z_dim
-
+        else:
+            if opt.use_synthseg:
+                assert opt.z_dim == 1, 'synthseg channel must be 1'
+                spade_conditional_input_dims += 1
         self.norm_0 = norms.SPADE(opt, fin, spade_conditional_input_dims)
         self.norm_1 = norms.SPADE(opt, fmiddle, spade_conditional_input_dims)
         if self.learned_shortcut:
