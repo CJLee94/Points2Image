@@ -43,7 +43,8 @@ class InstanceCycleGANModel(BaseModel):
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
-
+            parser.add_argument('--lambda_seg', type=float, default=1.0, help='weight for segmentation loss in the cycle consistency term')
+            parser.add_argument('--lambda_hv', type=float, default=1.0, help='weight for hv map loss in the cycle consistency loss')
         return parser
 
     def __init__(self, opt):
@@ -55,6 +56,7 @@ class InstanceCycleGANModel(BaseModel):
         BaseModel.__init__(self, opt)
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
+        self.loss_names += ['ABA_hv', 'ABA_seg']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
         visual_names_A = ['real_A', 'fake_B', 'rec_A']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
@@ -104,12 +106,14 @@ class InstanceCycleGANModel(BaseModel):
         print('netG_B')
         print(self.netG_B)   
         if self.isTrain:  # define discriminators
-            self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD,
+            self.netD_A = networks.define_D(opt.output_nc, opt.ndf, opt.netD_A,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
-            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD,
+            self.netD_B = networks.define_D(opt.input_nc, opt.ndf, opt.netD_B,
                                             opt.n_layers_D, opt.norm, opt.init_type, opt.init_gain, self.gpu_ids)
             print('netD_A')
             print(self.netD_A)
+            print('netD_B')
+            print(self.netD_B)
 
         if self.isTrain:
             if opt.lambda_identity > 0.0:  # only works when input and output images have the same number of channels
@@ -151,7 +155,8 @@ class InstanceCycleGANModel(BaseModel):
 
         loss_hv = self.criterionHV(hv_map_target, hv_map_pred, seg_map_target_onehot[...,1])
         loss_seg = self.criterionNP(seg_map_target_onehot, seg_map_pred)
-        return loss_hv + loss_seg
+        loss_total = self.opt.lambda_hv * loss_hv + self.opt.lambda_seg * loss_seg
+        return loss_total, loss_hv, loss_seg
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -227,7 +232,10 @@ class InstanceCycleGANModel(BaseModel):
         # GAN loss D_B(G_B(B))
         self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
         # Forward cycle loss || G_B(G_A(A)) - A||
-        self.loss_cycle_A = self.criterionInstanceSeg(self.rec_A, self.real_A) * lambda_A
+        # NOTE: loss_cycle_A_hv and loss_cycle_A_seg are only for training monitoring. 
+        # Their weighted sum is loss_cycle_A
+        self.loss_cycle_A, self.loss_ABA_hv, self.loss_ABA_seg = self.criterionInstanceSeg(self.rec_A, self.real_A)
+        self.loss_cycle_A = self.loss_cycle_A * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss and calculate gradients
