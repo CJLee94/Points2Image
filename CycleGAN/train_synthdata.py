@@ -23,7 +23,7 @@ if __name__ == '__main__':
     model.eval()
 
     total_iters = 0                # the total number of training iterations
-    os.makedirs('./train_images/', exist_ok=True)
+    os.makedirs('./train_images/%s'%opt.name, exist_ok=True)
     for epoch in range(opt.epoch_count, opt.n_epochs + opt.n_epochs_decay + 1):    # outer loop for different epochs; we save the model by <epoch_count>, <epoch_count>+<save_latest_freq>
         epoch_start_time = time.time()  # timer for entire epoch
         iter_data_time = time.time()    # timer for data loading per iteration
@@ -48,7 +48,7 @@ if __name__ == '__main__':
                 plt.subplot(1, 2, fig_i+1)
                 plt.imshow(image)
                 plt.axis('off')
-            plt.savefig('./train_images/ep%d_%d.jpg'%(epoch,i), dpi=200)
+            plt.savefig('./train_images/%s/ep%d_%d.jpg'%(opt.name, epoch, i), dpi=200)
             plt.close()
 
             '''add the segmentation training below
