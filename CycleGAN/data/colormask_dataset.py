@@ -27,7 +27,7 @@ class ColorMaskDataset(BaseDataset):
         By default, the number of channels for input image  is 1 (L) and
         the number of channels for output image is 2 (ab). The direction is from A to B
         """
-        parser.set_defaults(input_nc=1, output_nc=3, direction='AtoB')
+        parser.set_defaults(input_nc=3, output_nc=3, direction='AtoB')
         return parser
 
     def __init__(self, opt):
@@ -63,8 +63,8 @@ class ColorMaskDataset(BaseDataset):
         #A_img = hd['binary_masks'][index]
         A_img = hd['gen_color_masks'][index]
         B_img = hd['images'][index]
-        A_img = A_img.astype(np.float32) / 255. - 1.0
-        B_img = B_img.astype(np.float32) / 255. - 1.0
+        A_img = 2 * A_img.astype(np.float32) / 255. - 1.0
+        B_img = 2 * B_img.astype(np.float32) / 255. - 1.0
 
         #A_img = A_img[None, ...]
         A_img = np.transpose(A_img, (2,0,1))
