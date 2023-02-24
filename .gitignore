@@ -1,3 +1,13 @@
 CycleGAN/results/*
 CycleGAN/checkpoints/*
 CycleGAN/train_images/*
+*.pyc
+CycleGAN/__pycache__/*
+CycleGAN/options/__pycache__/base_options.cpython-38.pyc
+CycleGAN/options/__pycache__/base_options.cpython-39.pyc
+CycleGAN/options/__pycache__/base_options.cpython-38.pyc
+CycleGAN/options/__pycache__/base_options.cpython-39.pyc
+.vscode/
+CycleGAN/models/__pycache__/networks.cpython-38.pyc
+CycleGAN/options/__pycache__/base_options.cpython-38.pyc
+CycleGAN/data/check_data.ipynb
