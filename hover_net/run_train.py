@@ -297,17 +297,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--view', default=None)
     parser.add_argument('--gpu', default='0,1,2,3')
-    parser.add_argument('--datapath', default=None)
+    parser.add_argument('--train_dir', default=None)
+    parser.add_argument('--valid_dir', default=None)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()
-    if args.datapath is not None:
-        print('change the original train_dir_list {0} to {1}'.format(trainer.train_dir_list, args.datapath))
-        trainer.train_dir_list = [args.datapath]
-        exp_name = args.datapath.split('/')[-4]
+    if args.train_dir is not None:
+        print('change the original train_dir_list {0} to {1}'.format(trainer.train_dir_list, args.train_dir))
+        trainer.train_dir_list = [args.train_dir]
+        exp_name = args.train_dir.split('/')[-4]
         trainer.log_dir = os.path.join('./logs', exp_name)
         if not os.path.exists(trainer.log_dir):
             os.mkdir(trainer.log_dir)
+
+    if args.valid_dir is not None:
+        print('change the original valid_dir_list {0} to {1}'.format(trainer.valid_dir_list, args.valid_dir))
+        trainer.valid_dir_list = [args.valid_dir]
 
     if args.view:
         if args.view != "train" and args.view != "valid":

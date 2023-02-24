@@ -3,7 +3,8 @@ CycleGAN/checkpoints/*
 CycleGAN/train_images/*
 hover_net/logs/*
 hover_net/dataset/*
+hover_net/saved_model/*
 **/*.pyc
 **/*.ipynb
-**/
+# **/
 **/*.png
