@@ -1,3 +1,7 @@
 CycleGAN/results/*
 CycleGAN/checkpoints/*
 CycleGAN/train_images/*
+hover_net/logs/*
+hover_net/dataset/*
+**/*.pyc
+**/*.ipynb
