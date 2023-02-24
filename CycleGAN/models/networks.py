@@ -567,6 +567,8 @@ class ResnetZGenerator(nn.Module):
             use_bias = norm_layer == nn.InstanceNorm2d
         self.opt = opt
         # add 3d noise as OASIS generator
+        if self.opt.use_synthseg:
+            assert opt.z_dim == 1
         model = [nn.Conv2d(input_nc + self.opt.z_dim, 
                             ngf, 3, padding=1)]
 
@@ -602,13 +604,17 @@ class ResnetZGenerator(nn.Module):
         self.model = nn.Sequential(*model)
 
     def forward(self, input):
-        """Add random noise to the input"""
         dev = input.get_device() if self.opt.gpu_ids != "-1" else "cpu"
-        z = torch.randn(input.size(0),
-                        self.opt.z_dim, dtype=torch.float32, device=dev)
-        z = z.view(z.size(0), self.opt.z_dim, 1, 1)
-        z = z.expand(z.size(0), self.opt.z_dim, input.size(2), input.size(3))
-        input = torch.cat((z, input), dim = 1)
+        if self.opt.use_synthseg:
+            z_synthseg = synthseg_from_hvseg_mask_torch(input).to(dev)
+            input = torch.cat((z_synthseg, input), dim = 1)
+        else:
+            """Add random noise to the input"""
+            z = torch.randn(input.size(0),
+                            self.opt.z_dim, dtype=torch.float32, device=dev)
+            z = z.view(z.size(0), self.opt.z_dim, 1, 1)
+            z = z.expand(z.size(0), self.opt.z_dim, input.size(2), input.size(3))
+            input = torch.cat((z, input), dim = 1)
 
         """Standard forward"""
         return self.model(input)
@@ -1021,6 +1027,7 @@ def synthseg_from_hvseg_mask_torch(A_img):
         synseg_i = 2 * synseg_i - 1
         torch_synthseg[i] = synseg_i
     return torch_synthseg.unsqueeze(1)
+
 
 class OASIS_Generator(nn.Module):
     """OASIS generator modified from https://github.com/boschresearch/OASIS/blob/master/models/generator.py#L7 """
