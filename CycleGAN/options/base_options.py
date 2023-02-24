@@ -155,7 +155,8 @@ class BaseOptions():
     def load_opt(self):
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         # loading configuration from 'train_opt.txt'
-        parser.add_argument('--train_opt_file', default=None, help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
+        parser.add_argument('--train_opt_file', default='/home/cj/Research/Points2Image/CycleGAN/checkpoints/basic_netD_oasis_netGa_unet256_netGb_cyclegan/train_opt_local.txt', 
+                            help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
 
         args= parser.parse_args()
 
@@ -168,6 +169,7 @@ class BaseOptions():
 
         opt = opt_class()
         opt.isTrain = False
+        opt.train_opt_file = args.train_opt_file
         with open(args.train_opt_file, "r") as f:
             for line in f:
                 if line == '----------------- Options ---------------\n':

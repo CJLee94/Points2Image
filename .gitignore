@@ -11,3 +11,10 @@ CycleGAN/options/__pycache__/base_options.cpython-39.pyc
 CycleGAN/models/__pycache__/networks.cpython-38.pyc
 CycleGAN/options/__pycache__/base_options.cpython-38.pyc
 CycleGAN/data/check_data.ipynb
+hover_net/logs/*
+hover_net/dataset/*
+hover_net/saved_model/*
+**/*.pyc
+**/*.ipynb
+# **/
+**/*.png

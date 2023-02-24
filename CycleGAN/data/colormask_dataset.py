@@ -82,4 +82,4 @@ class ColorMaskDataset(BaseDataset):
     def __len__(self):
         """Return the total number of images in the dataset."""
         hd = h5py.File(self.dir, 'r')
-        return hd['binary_masks'].shape[0]
+        return hd['images'].shape[0]
