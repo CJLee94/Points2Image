@@ -16,3 +16,5 @@ hover_net/dataset/*
 hover_net/saved_model/*
 **/*.pyc
 **/*.ipynb
+**/*.npy
+**/*.tar
