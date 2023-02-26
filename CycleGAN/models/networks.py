@@ -376,12 +376,9 @@ class PointLoss(nn.Module):
         true: NxHxW, the value should be in range [0, C-1] where C is the number of classes
         pred: NxCxHxW the probability of each pixel being in class C
         '''
-        true = true.type(torch.LongTensor)
-        
+        true = true.long()
         probs = torch.clamp(pred, smooth, 1-smooth)
         probs_log = torch.log(probs)
-        true = true.type(torch.LongTensor)
-
         # POINT LOSS
         ploss = F.nll_loss(probs_log, true, 
                         ignore_index=0,

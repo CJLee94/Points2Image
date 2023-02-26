@@ -5,6 +5,7 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 from utils import WeightedDiceBCE
+torch.manual_seed(33)
 
 
 class InstanceCycleGANModel(BaseModel):
@@ -57,8 +58,9 @@ class InstanceCycleGANModel(BaseModel):
         # specify the training losses you want to print out. The training/test scripts will call <BaseModel.get_current_losses>
         self.loss_names = ['D_A', 'G_A', 'cycle_A', 'idt_A', 'D_B', 'G_B', 'cycle_B', 'idt_B']
         self.loss_names += ['ABA_hv', 'ABA_seg']
+        self.loss_names += ['ABA_point', 'BA_point']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        visual_names_A = ['real_A', 'fake_B', 'rec_A']
+        visual_names_A = ['real_A', 'fake_B', 'rec_A', 'real_P']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
         if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
             visual_names_A.append('idt_B')
@@ -126,7 +128,8 @@ class InstanceCycleGANModel(BaseModel):
             self.criterionNP = networks.NPLoss().to(self.device)
             # define hv loss mse+msge: https://github.com/vqdang/hover_net/blob/master/models/hovernet/utils.py
             self.criterionHV = networks.HVLoss().to(self.device)
-
+            # define point loss 
+            self.criterionPoint = networks.PointLoss().to(self.device)
             self.criterionCycle = torch.nn.L1Loss()
             self.criterionIdt = torch.nn.L1Loss()
             # define segmentation loss: https://docs.monai.io/en/stable/losses.html#diceceloss 
@@ -147,9 +150,9 @@ class InstanceCycleGANModel(BaseModel):
         seg_map_pred = rec_A[:, 2:3, ...]
         seg_map_pred = torch.cat([1-seg_map_pred, seg_map_pred], dim=1).permute(0, 2, 3, 1).contiguous()
         seg_map_target = real_A[:, 2:3, ...].squeeze(1)
-        
+        #print(seg_map_target.min(), seg_map_target.max())
         seg_map_target_onehot = (F.one_hot(seg_map_target.type(torch.int64), num_classes=2)).type(torch.float32)
-
+        #seg_map_target_onehot = seg_map_target_onehot.to(self.device)
         # import pdb
         # pdb.set_trace()
 
@@ -157,6 +160,17 @@ class InstanceCycleGANModel(BaseModel):
         loss_seg = self.criterionNP(seg_map_target_onehot, seg_map_pred)
         loss_total = self.opt.lambda_hv * loss_hv + self.opt.lambda_seg * loss_seg
         return loss_total, loss_hv, loss_seg
+
+    def get_point_loss(self, pred, real):
+        """
+        pred: hv mask + segmentation prediction Nx3xWxH
+        real: groundtruth point label NxWxH
+        """
+        # get the binary prediction
+        seg_map_pred = pred[:, 2:3, ...]
+        seg_map_pred = torch.cat([1-seg_map_pred, seg_map_pred], dim=1).contiguous()
+        loss_point = self.criterionPoint(real, seg_map_pred)
+        return loss_point
 
     def set_input(self, input):
         """Unpack input data from the dataloader and perform necessary pre-processing steps.
@@ -169,6 +183,7 @@ class InstanceCycleGANModel(BaseModel):
         AtoB = self.opt.direction == 'AtoB'
         self.real_A = input['A' if AtoB else 'B'].to(self.device)
         self.real_B = input['B' if AtoB else 'A'].to(self.device)
+        self.real_P = input['P'].to(self.device)
         self.image_paths = input['A_paths' if AtoB else 'B_paths']
 
     def forward(self):
@@ -231,15 +246,18 @@ class InstanceCycleGANModel(BaseModel):
         self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
         # GAN loss D_B(G_B(B))
         self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
+        # Point loss on G_B(B)
+        self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P)
         # Forward cycle loss || G_B(G_A(A)) - A||
         # NOTE: loss_cycle_A_hv and loss_cycle_A_seg are only for training monitoring. 
         # Their weighted sum is loss_cycle_A
         self.loss_cycle_A, self.loss_ABA_hv, self.loss_ABA_seg = self.criterionInstanceSeg(self.rec_A, self.real_A)
+        self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P)
         self.loss_cycle_A = self.loss_cycle_A * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
         # combined loss and calculate gradients
-        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B
+        self.loss_G = self.loss_G_A + self.loss_G_B + self.loss_cycle_A + self.loss_cycle_B + self.loss_idt_A + self.loss_idt_B + self.loss_BA_point + self.loss_ABA_point
         self.loss_G.backward()
 
     def optimize_parameters(self):
