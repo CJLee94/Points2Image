@@ -69,12 +69,17 @@ class AlignInstanceMaskDataset(BaseDataset):
         B_img = np.transpose(B_img, (2,0,1))
         B_img = torch.from_numpy(B_img)
         
-        # apply image transformation (A and B will have the same point annotation)
-        AB = self.transform_AB(torch.cat((A_img, B_img), dim=0))
-        A, B = AB[:3], AB[3:]
+        P_img = hd['points_masks'][index]
+        P_img = P_img.astype(np.float32) / 255.
+        P_img = torch.from_numpy(P_img[None, ...])
 
-        #print(A.shape, B.shape)
-        return {'A': A, 'B': B, 'A_paths': index, 'B_paths': index}
+        # apply image transformation (A and B will have the same point annotation)
+        AB = self.transform_AB(torch.cat((A_img, B_img, P_img), dim=0))
+        A, B, P = AB[:3], AB[3:3+3], AB[-1]
+
+        #print(A.shape, B.shape, P.shape)
+        return {'A': A, 'B': B, 'P': P,
+                'A_paths': index, 'B_paths': index}
 
     def __len__(self):
         """Return the total number of images in the dataset."""
