@@ -25,13 +25,13 @@ if __name__ == "__main__":
 
     # Name of dataset - use Kumar, CPM17 or CoNSeP.
     # This used to get the specific dataset img and ann loading scheme from dataset.py
-    dataset_name = "fake_monuseg"
+    dataset_name = "gt_monuseg"
     save_root = "dataset/training_data/%s/" % dataset_name
 
     # a dictionary to specify where the dataset path should be
     dataset_info = {
-        # "train": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced.h5',
-        "valid": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_test_v4_enhanced.h5',
+        "train": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced.h5',
+        # "valid": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_test_v4_enhanced.h5',
     }
 
     patterning = lambda x: re.sub("([\[\]])", "[\\1]", x)
@@ -65,7 +65,7 @@ if __name__ == "__main__":
         # file_list.sort()  # ensure same ordering across platform
         if split_name == 'train':
             image_stacks = h5f['images']
-            ann_stacks = h5f['gen_instance_masks']
+            ann_stacks = h5f['instance_masks']
         elif split_name == 'valid':
             image_stacks = h5f['images']
             ann_stacks = h5f['instance_masks']

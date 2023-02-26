@@ -80,7 +80,7 @@ def remove_small_objects(pred, min_size=64, connectivity=1):
 
 
 ####
-def __proc_np_hv(pred):
+def __proc_np_hv(pred, ksize=21):
     """Process Nuclei Prediction with XY Coordinate Map.
 
     Args:
@@ -110,8 +110,8 @@ def __proc_np_hv(pred):
         v_dir_raw, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F
     )
 
-    sobelh = cv2.Sobel(h_dir, cv2.CV_64F, 1, 0, ksize=21)
-    sobelv = cv2.Sobel(v_dir, cv2.CV_64F, 0, 1, ksize=21)
+    sobelh = cv2.Sobel(h_dir, cv2.CV_64F, 1, 0, ksize=ksize)
+    sobelv = cv2.Sobel(v_dir, cv2.CV_64F, 0, 1, ksize=ksize)
 
     sobelh = 1 - (
         cv2.normalize(
@@ -132,15 +132,15 @@ def __proc_np_hv(pred):
     ## nuclei values form mountains so inverse to get basins
     dist = -cv2.GaussianBlur(dist, (3, 3), 0)
 
-    overall = np.array(overall >= 0.4, dtype=np.int32)
+    overall = np.array(overall >= 0.6, dtype=np.int32)
 
     marker = blb - overall
     marker[marker < 0] = 0
-    # marker = binary_fill_holes(marker).astype("uint8")
-    # kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    # marker = cv2.morphologyEx(marker, cv2.MORPH_OPEN, kernel)
-    # marker = measurements.label(marker)[0]
-    # marker = remove_small_objects(marker, min_size=10)
+    marker = binary_fill_holes(marker).astype("uint8")
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    marker = cv2.morphologyEx(marker, cv2.MORPH_OPEN, kernel)
+    marker = measurements.label(marker)[0]
+    marker = remove_small_objects(marker, min_size=10)
 
     proced_pred = watershed(dist, markers=marker, mask=blb)
 
