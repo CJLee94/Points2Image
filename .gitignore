@@ -18,3 +18,4 @@ hover_net/saved_model/*
 **/*.ipynb
 **/*.npy
 **/*.tar
+**/*.json
