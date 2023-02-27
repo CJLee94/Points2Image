@@ -163,52 +163,56 @@ class BaseOptions():
             
         if args.train_opt_file is None:
             raise ValueError('The train_opt_file cannot be None if you want to load the configuration parameters from a file.')
+        
+        return load_opt_from_file(args.train_opt_file)
 
-        class opt_class:
-            pass
 
-        opt = opt_class()
-        opt.isTrain = False
-        opt.train_opt_file = args.train_opt_file
-        with open(args.train_opt_file, "r") as f:
-            for line in f:
-                if line == '----------------- Options ---------------\n':
-                    pass
-                elif line == '----------------- End -------------------\n':
-                    pass
-                else:
-                    k = line[:25].strip()
-                    v = re.sub(r"\[default\: \S*\]", "", line[27:].strip(), flags=re.IGNORECASE).strip()
-                    if len(re.findall("\d", v))>0 and len(re.findall('[a-zA-Z_]', v))==0 and k != 'gpu_ids':
-                        if '.' in v:
-                            v = float(v)
-                        else:
-                            v = int(v)
-                    elif v.lower() == 'true':
-                        v = True
-                    elif v.lower() == 'false':
-                        v = False
-                    setattr(opt, k, v)
+def load_opt_from_file(file):
+    class opt_class:
+        pass
 
-        if opt.suffix:
-            suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
-            opt.name = opt.name + suffix
+    opt = opt_class()
+    opt.isTrain = False
+    opt.train_opt_file = file
+    with open(opt.train_opt_file, "r") as f:
+        for line in f:
+            if line == '----------------- Options ---------------\n':
+                pass
+            elif line == '----------------- End -------------------\n':
+                pass
+            else:
+                k = line[:25].strip()
+                v = re.sub(r"\[default\: \S*\]", "", line[27:].strip(), flags=re.IGNORECASE).strip()
+                if len(re.findall("\d", v))>0 and len(re.findall('[a-zA-Z_]', v))==0 and k != 'gpu_ids':
+                    if '.' in v:
+                        v = float(v)
+                    else:
+                        v = int(v)
+                elif v.lower() == 'true':
+                    v = True
+                elif v.lower() == 'false':
+                    v = False
+                setattr(opt, k, v)
 
-        # self.print_options(opt)
+    if opt.suffix:
+        suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
+        opt.name = opt.name + suffix
 
-        # set gpu ids
-        str_ids = opt.gpu_ids.split(',')
-        opt.gpu_ids = []
-        for str_id in str_ids:
-            id = int(str_id)
-            if id >= 0:
-                opt.gpu_ids.append(id)
-        if len(opt.gpu_ids) > 0:
-            torch.cuda.set_device(opt.gpu_ids[0])
+    # self.print_options(opt)
 
-        if opt.max_dataset_size == "inf":
-            opt.max_dataset_size = float("inf")
-        return opt
+    # set gpu ids
+    str_ids = opt.gpu_ids.split(',')
+    opt.gpu_ids = []
+    for str_id in str_ids:
+        id = int(str_id)
+        if id >= 0:
+            opt.gpu_ids.append(id)
+    if len(opt.gpu_ids) > 0:
+        torch.cuda.set_device(opt.gpu_ids[0])
+
+    if opt.max_dataset_size == "inf":
+        opt.max_dataset_size = float("inf")
+    return opt
         
         
 # opt.isTrain = self.isTrain   # train or test
