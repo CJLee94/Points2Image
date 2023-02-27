@@ -53,7 +53,7 @@ def train_step(batch_data, run_info):
         with torch.no_grad():
             input_image = generator.netG_A(generator.real_A)  # G_A(A)
             target_mask = generator.real_A
-        imgs = 255.0*(input_image+1)/2.0
+        imgs = torch.clamp(255.0*(input_image+1)/2.0, 0, 255)
         true_hv = target_mask[:,:2].permute(0,2,3,1).contiguous()
         true_np = target_mask[:, -1].type(torch.int64)
 
