@@ -82,8 +82,6 @@ class Config(object):
             self.train_dir_list = [args.train_dir]
             exp_name = args.train_dir.split('/')[-4]
             self.log_dir = os.path.join('./logs', exp_name)
-            if not os.path.exists(self.log_dir):
-                os.mkdir(self.log_dir)
 
         if args.valid_dir is not None:
             print('change the original valid_dir_list {0} to {1}'.format(self.valid_dir_list, args.valid_dir))
@@ -98,8 +96,12 @@ class Config(object):
                 "models.%s.opt" % self.model_name
             )
             self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt)
+            self.log_dir = os.path.join('./logs', exp_name+'_otf')
         else:
             self.otf_opt = None
+        
+        if not os.path.exists(self.log_dir):
+                os.mkdir(self.log_dir)
         
 
 def load_opt_from_file(file):
