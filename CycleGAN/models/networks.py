@@ -176,6 +176,8 @@ def define_G(opt, input_nc, output_nc, ngf, netG,
         net = OASIS_Generator(opt, input_nc, output_nc,
                               final_activation=final_activation)
         #print(net)
+    elif netG == 'hovernet':
+        net = HoVerNet(input_ch=input_nc, ngf=ngf, final_activation=final_activation)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
@@ -1139,7 +1141,7 @@ class Net(nn.Module):
 
     def forward(self, x):
         return x
-
+    
 
 class TFSamepaddingLayer(nn.Module):
     """To align with tf `same` padding. 
@@ -1172,47 +1174,7 @@ class TFSamepaddingLayer(nn.Module):
         return x
 
 
-def crop_op(x, cropping, data_format="NCHW"):
-    """Center crop image.
-
-    Args:
-        x: input image
-        cropping: the substracted amount
-        data_format: choose either `NCHW` or `NHWC`
-        
-    """
-    crop_t = cropping[0] // 2
-    crop_b = cropping[0] - crop_t
-    crop_l = cropping[1] // 2
-    crop_r = cropping[1] - crop_l
-    if data_format == "NCHW":
-        x = x[:, :, crop_t:-crop_b, crop_l:-crop_r]
-    else:
-        x = x[:, crop_t:-crop_b, crop_l:-crop_r, :]
-    return x
-
-
-def crop_to_shape(x, y, data_format="NCHW"):
-    """Centre crop x so that x has shape of y. y dims must be smaller than x dims.
-
-    Args:
-        x: input array
-        y: array with desired shape.
-
-    """
-    assert (
-        y.shape[0] <= x.shape[0] and y.shape[1] <= x.shape[1]
-    ), "Ensure that y dimensions are smaller than x dimensions!"
-
-    x_shape = x.size()
-    y_shape = y.size()
-    if data_format == "NCHW":
-        crop_shape = (x_shape[2] - y_shape[2], x_shape[3] - y_shape[3])
-    else:
-        crop_shape = (x_shape[1] - y_shape[1], x_shape[2] - y_shape[2])
-    return crop_op(x, crop_shape, data_format)
-
-
+####
 class DenseBlock(Net):
     """Dense Block as defined in:
 
@@ -1255,7 +1217,7 @@ class DenseBlock(Net):
                             ),
                             ("conv1/bn", nn.BatchNorm2d(unit_ch[0], eps=1e-5)),
                             ("conv1/relu", nn.ReLU(inplace=True)),
-                            # ('conv2/pool', TFSamepaddingLayer(ksize=unit_ksize[1], stride=1)),
+                            ('conv2/pool', TFSamepaddingLayer(ksize=unit_ksize[1], stride=1)),
                             (
                                 "conv2",
                                 nn.Conv2d(
@@ -1289,7 +1251,6 @@ class DenseBlock(Net):
     def forward(self, prev_feat):
         for idx in range(self.nr_unit):
             new_feat = self.units[idx](prev_feat)
-            prev_feat = crop_to_shape(prev_feat, new_feat)
             prev_feat = torch.cat([prev_feat, new_feat], dim=1)
         prev_feat = self.blk_bna(prev_feat)
 
@@ -1385,10 +1346,6 @@ class ResidualBlock(Net):
             )
         )
 
-        # print(self.units[0])
-        # print(self.units[1])
-        # exit()
-
     def out_ch(self):
         return self.unit_ch[-1]
 
@@ -1411,6 +1368,7 @@ class ResidualBlock(Net):
         return feat
 
 
+####
 class UpSample2x(nn.Module):
     """Upsample input by a factor of 2.
     
@@ -1441,7 +1399,7 @@ class UpSample2x(nn.Module):
 class HoVerNet(Net):
     """Initialise HoVer-Net."""
 
-    def __init__(self, input_ch=3, nr_types=None, freeze=False, mode='original'):
+    def __init__(self, input_ch=3, ngf=32, nr_types=None, freeze=False, mode='original', final_activation='tanh_sigmoid'):
         super().__init__()
         self.mode = mode
         self.freeze = freeze
@@ -1452,46 +1410,47 @@ class HoVerNet(Net):
                 'Unknown mode `%s` for HoVerNet %s. Only support `original` or `fast`.' % mode
 
         module_list = [
-            ("/", nn.Conv2d(input_ch, 64, 7, stride=1, padding=0, bias=False)),
-            ("bn", nn.BatchNorm2d(64, eps=1e-5)),
+            # ("/", nn.Conv2d(input_ch, 64, 7, stride=1, padding=0, bias=False)),
+            ("/", nn.Conv2d(input_ch, ngf, 3, stride=1, padding=1, bias=False)),
+            ("bn", nn.BatchNorm2d(ngf, eps=1e-5)),
             ("relu", nn.ReLU(inplace=True)),
         ]
         if mode == 'fast': # prepend the padding for `fast` mode
             module_list = [("pad", TFSamepaddingLayer(ksize=7, stride=1))] + module_list
 
         self.conv0 = nn.Sequential(OrderedDict(module_list))
-        self.d0 = ResidualBlock(64, [1, 3, 1], [64, 64, 256], 3, stride=1)
-        self.d1 = ResidualBlock(256, [1, 3, 1], [128, 128, 512], 4, stride=2)
-        self.d2 = ResidualBlock(512, [1, 3, 1], [256, 256, 1024], 6, stride=2)
-        self.d3 = ResidualBlock(1024, [1, 3, 1], [512, 512, 2048], 3, stride=2)
+        self.d0 = ResidualBlock(ngf, [1, 3, 1], [ngf, ngf, ngf*4], 3, stride=1)
+        self.d1 = ResidualBlock(ngf*4, [1, 3, 1], [ngf*2, ngf*2, ngf*8], 4, stride=2)
+        self.d2 = ResidualBlock(ngf*8, [1, 3, 1], [ngf*4, ngf*4, ngf*16], 6, stride=2)
+        self.d3 = ResidualBlock(ngf*16, [1, 3, 1], [ngf*8, ngf*8, ngf*32], 3, stride=2)
 
-        self.conv_bot = nn.Conv2d(2048, 1024, 1, stride=1, padding=0, bias=False)
+        self.conv_bot = nn.Conv2d(ngf*32, ngf*16, 1, stride=1, padding=0, bias=False)
 
         def create_decoder_branch(out_ch=2, ksize=5):
             module_list = [ 
-                ("conva", nn.Conv2d(1024, 256, ksize, stride=1, padding=0, bias=False)),
-                ("dense", DenseBlock(256, [1, ksize], [128, 32], 8, split=4)),
-                ("convf", nn.Conv2d(512, 512, 1, stride=1, padding=0, bias=False),),
+                ("conva", nn.Conv2d(ngf*16, ngf*4, ksize, stride=1, padding=2, bias=False)),
+                ("dense", DenseBlock(ngf*4, [1, ksize], [ngf*2, ngf//2], 8, split=4)),
+                ("convf", nn.Conv2d(ngf*8, ngf*8, 1, stride=1, padding=0, bias=False),),
             ]
             u3 = nn.Sequential(OrderedDict(module_list))
 
             module_list = [ 
-                ("conva", nn.Conv2d(512, 128, ksize, stride=1, padding=0, bias=False)),
-                ("dense", DenseBlock(128, [1, ksize], [128, 32], 4, split=4)),
-                ("convf", nn.Conv2d(256, 256, 1, stride=1, padding=0, bias=False),),
+                ("conva", nn.Conv2d(ngf*8, ngf*2, ksize, stride=1, padding=2, bias=False)),
+                ("dense", DenseBlock(ngf*2, [1, ksize], [ngf*2, ngf//2], 4, split=4)),
+                ("convf", nn.Conv2d(ngf*4, ngf*4, 1, stride=1, padding=0, bias=False),),
             ]
             u2 = nn.Sequential(OrderedDict(module_list))
 
             module_list = [ 
                 ("conva/pad", TFSamepaddingLayer(ksize=ksize, stride=1)),
-                ("conva", nn.Conv2d(256, 64, ksize, stride=1, padding=0, bias=False),),
+                ("conva", nn.Conv2d(ngf*4, ngf, ksize, stride=1, padding=0, bias=False),),
             ]
             u1 = nn.Sequential(OrderedDict(module_list))
 
             module_list = [ 
-                ("bn", nn.BatchNorm2d(64, eps=1e-5)),
+                ("bn", nn.BatchNorm2d(ngf, eps=1e-5)),
                 ("relu", nn.ReLU(inplace=True)),
-                ("conv", nn.Conv2d(64, out_ch, 1, stride=1, padding=0, bias=True),),
+                ("conv", nn.Conv2d(ngf, out_ch, 1, stride=1, padding=0, bias=True),),
             ]
             u0 = nn.Sequential(OrderedDict(module_list))
 
@@ -1505,7 +1464,7 @@ class HoVerNet(Net):
             self.decoder = nn.ModuleDict(
                 OrderedDict(
                     [
-                        ("np", create_decoder_branch(ksize=ksize,out_ch=2)),
+                        ("np", create_decoder_branch(ksize=ksize,out_ch=1)),
                         ("hv", create_decoder_branch(ksize=ksize,out_ch=2)),
                     ]
                 )
@@ -1522,12 +1481,17 @@ class HoVerNet(Net):
             )
 
         self.upsample2x = UpSample2x()
-        # TODO: pytorch still require the channel eventhough its ignored
+        
+        if final_activation == 'tanh':
+            self.final_act = nn.Tanh()
+        elif final_activation == 'tanh_sigmoid':
+            self.final_act = Tanh_Sigmoid()
+        else:
+            raise NotImplementedError
+        
         self.weights_init()
 
     def forward(self, imgs):
-
-        imgs = imgs / 255.0  # to 0-1 range to match XY
 
         if self.training:
             d0 = self.conv0(imgs)
@@ -1547,14 +1511,6 @@ class HoVerNet(Net):
             d3 = self.conv_bot(d3)
             d = [d0, d1, d2, d3]
 
-        # TODO: switch to `crop_to_shape` ?
-        if self.mode == 'original':
-            d[0] = crop_op(d[0], [184, 184])
-            d[1] = crop_op(d[1], [72, 72])
-        else:
-            d[0] = crop_op(d[0], [92, 92])
-            d[1] = crop_op(d[1], [36, 36])
-
         out_dict = OrderedDict()
         for branch_name, branch_desc in self.decoder.items():
             u3 = self.upsample2x(d[-1]) + d[-2]
@@ -1569,7 +1525,9 @@ class HoVerNet(Net):
             u0 = branch_desc[3](u1)
             out_dict[branch_name] = u0
 
-        return out_dict
+        out = torch.cat([out_dict['hv'], out_dict['np']], dim=1)
+
+        return self.final_act(out)
 ########################################## End of Modules for HoVerNet #################################################
 
 class ResnetBlock_with_SPADE(nn.Module):
