@@ -34,6 +34,7 @@ from torch.nn import DataParallel  # TODO: switch to DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from config import Config
+from data import find_dataset_using_name
 from dataloader.train_loader import FileLoader
 from misc.utils import rm_n_mkdir
 from run_utils.engine import RunEngine
@@ -113,23 +114,36 @@ class TrainManager(Config):
             % (run_mode, "%s_dir_list" % run_mode)
         )
         print("Dataset %s: %d" % (run_mode, len(file_list)))
-        input_dataset = FileLoader(
-            file_list,
-            mode=run_mode,
-            with_type=self.type_classification,
-            setup_augmentor=nr_procs == 0,
-            target_gen=target_gen,
-            **self.shape_info[run_mode]
-        )
 
-        dataloader = DataLoader(
-            input_dataset,
-            num_workers=nr_procs,
-            batch_size=batch_size * self.nr_gpus,
-            shuffle=run_mode == "train",
-            drop_last=run_mode == "train",
-            worker_init_fn=worker_init_fn,
-        )
+        if self.otf_opt is not None and run_mode=="train":
+            dataclass = find_dataset_using_name(self.otf_opt.dataset_mode)
+            input_dataset = dataclass(self.otf_opt)
+            dataloader = DataLoader(
+                input_dataset,
+                num_workers=nr_procs,
+                batch_size=batch_size * self.nr_gpus,
+                shuffle=run_mode == "train",
+                drop_last=run_mode == "train",
+                # worker_init_fn=worker_init_fn,
+            )
+        else:
+            input_dataset = FileLoader(
+                file_list,
+                mode=run_mode,
+                with_type=self.type_classification,
+                setup_augmentor=nr_procs == 0,
+                target_gen=target_gen,
+                **self.shape_info[run_mode]
+            )
+
+            dataloader = DataLoader(
+                input_dataset,
+                num_workers=nr_procs,
+                batch_size=batch_size * self.nr_gpus,
+                shuffle=run_mode == "train",
+                drop_last=run_mode == "train",
+                worker_init_fn=worker_init_fn,
+            )
         return dataloader
 
     ####
@@ -299,20 +313,11 @@ if __name__ == "__main__":
     parser.add_argument('--gpu', default='0,1,2,3')
     parser.add_argument('--train_dir', default=None)
     parser.add_argument('--valid_dir', default=None)
+    parser.add_argument('--otf', default=None)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()
-    if args.train_dir is not None:
-        print('change the original train_dir_list {0} to {1}'.format(trainer.train_dir_list, args.train_dir))
-        trainer.train_dir_list = [args.train_dir]
-        exp_name = args.train_dir.split('/')[-4]
-        trainer.log_dir = os.path.join('./logs', exp_name)
-        if not os.path.exists(trainer.log_dir):
-            os.mkdir(trainer.log_dir)
-
-    if args.valid_dir is not None:
-        print('change the original valid_dir_list {0} to {1}'.format(trainer.valid_dir_list, args.valid_dir))
-        trainer.valid_dir_list = [args.valid_dir]
+    trainer.load_config_from_args(args)
 
     if args.view:
         if args.view != "train" and args.view != "valid":

@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from misc.utils import center_pad_to_shape, cropping_center
 from .utils import crop_to_shape, dice_loss, mse_loss, msge_loss, xentropy_loss
+from generative_models import create_model
 
 from collections import OrderedDict
 
@@ -27,22 +28,41 @@ def train_step(batch_data, run_info):
     optimizer = run_info["net"]["optimizer"]
 
     ####
-    imgs = batch_data["img"]
-    true_np = batch_data["np_map"]
-    true_hv = batch_data["hv_map"]
+    # import pdb
+    # pdb.set_trace()
+    if run_info["net"]['extra_info']["generator"] is None:
+        imgs = batch_data["img"]
+        true_np = batch_data["np_map"]
+        true_hv = batch_data["hv_map"]
 
-    imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
-    imgs = imgs.permute(0, 3, 1, 2).contiguous()
+        imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
+        imgs = imgs.permute(0, 3, 1, 2).contiguous()
 
-    # HWC
-    true_np = true_np.to("cuda").type(torch.int64)
-    true_hv = true_hv.to("cuda").type(torch.float32)
+        # HWC
+        true_np = true_np.to("cuda").type(torch.int64)
+        true_hv = true_hv.to("cuda").type(torch.float32)
 
-    true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
-    true_dict = {
-        "np": true_np_onehot,
-        "hv": true_hv,
-    }
+        true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
+        true_dict = {
+            "np": true_np_onehot,
+            "hv": true_hv,
+        }
+    else:
+        generator = run_info["net"]['extra_info']["generator"]
+        generator.set_input(batch_data)
+        with torch.no_grad():
+            input_image = generator.netG_A(generator.real_A)  # G_A(A)
+            target_mask = generator.real_A
+        imgs = 255.0*(input_image+1)/2.0
+        true_hv = target_mask[:,:2].permute(0,2,3,1).contiguous()
+        true_np = target_mask[:, -1].type(torch.int64)
+
+        true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
+        true_dict = {
+            "np": true_np_onehot,
+            "hv": true_hv,
+        }
+
 
     if model.module.nr_types is not None:
         true_tp = batch_data["tp_map"]

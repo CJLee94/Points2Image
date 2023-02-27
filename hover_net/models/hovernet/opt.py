@@ -15,12 +15,20 @@ from run_utils.engine import Events
 
 from .targets import gen_targets, prep_sample
 from .net_desc import create_model
+from generative_models import create_model as create_generator
 from .run_desc import proc_valid_step_output, train_step, valid_step, viz_step_output
 
 
+def make_generator(opt):
+    generator = create_generator(opt)      # create a cyclegan model
+    generator.isTrain = False
+    generator.setup(opt)               # regular setup: load and print networks; create schedulers
+    generator.eval()
+    return generator
+
 # TODO: training config only ?
 # TODO: switch all to function name String for all option
-def get_config(nr_type, mode):
+def get_config(nr_type, mode, otf_opt=None):
     return {
         # ------------------------------------------------------------------
         # ! All phases have the same number of run engine
@@ -44,6 +52,7 @@ def get_config(nr_type, mode):
                         # learning rate scheduler
                         "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, 25),
                         "extra_info": {
+                            "generator": make_generator(otf_opt) if otf_opt is not None else None,
                             "loss": {
                                 "np": {"bce": 1, "dice": 1},
                                 "hv": {"mse": 1, "msge": 1},
@@ -78,6 +87,7 @@ def get_config(nr_type, mode):
                         # learning rate scheduler
                         "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, 25),
                         "extra_info": {
+                            "generator": make_generator(otf_opt) if otf_opt is not None else None,
                             "loss": {
                                 "np": {"bce": 1, "dice": 1},
                                 "hv": {"mse": 1, "msge": 1},

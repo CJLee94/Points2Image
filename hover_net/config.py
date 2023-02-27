@@ -1,8 +1,11 @@
 import importlib
 import random
+import os
+import re
 
 import cv2
 import numpy as np
+import torch
 
 from dataset import get_dataset
 
@@ -18,13 +21,13 @@ class Config(object):
         # turn on debug flag to trace some parallel processing problems more easily
         self.debug = False
 
-        model_name = "hovernet"
-        model_mode = "original" # choose either `original` or `fast`
+        self.model_name = "hovernet"
+        self.model_mode = "original" # choose either `original` or `fast`
 
-        if model_mode not in ["original", "fast"]:
+        if self.model_mode not in ["original", "fast"]:
             raise Exception("Must use either `original` or `fast` as model mode")
 
-        nr_type = None # number of nuclear types (including background)
+        self.nr_type = None # number of nuclear types (including background)
 
         # whether to predict the nuclear type, availability depending on dataset!
         self.type_classification = False
@@ -69,6 +72,79 @@ class Config(object):
         self.dataset = get_dataset(self.dataset_name)
 
         module = importlib.import_module(
-            "models.%s.opt" % model_name
+            "models.%s.opt" % self.model_name
         )
-        self.model_config = module.get_config(nr_type, model_mode)
+        self.model_config = module.get_config(self.nr_type, self.model_mode)
+    
+    def load_config_from_args(self, args):
+        if args.train_dir is not None:
+            print('change the original train_dir_list {0} to {1}'.format(self.train_dir_list, args.train_dir))
+            self.train_dir_list = [args.train_dir]
+            exp_name = args.train_dir.split('/')[-4]
+            self.log_dir = os.path.join('./logs', exp_name)
+            if not os.path.exists(self.log_dir):
+                os.mkdir(self.log_dir)
+
+        if args.valid_dir is not None:
+            print('change the original valid_dir_list {0} to {1}'.format(self.valid_dir_list, args.valid_dir))
+            self.valid_dir_list = [args.valid_dir]
+
+        if args.otf is not None:
+            self.otf_opt = load_opt_from_file(args.otf) 
+            self.otf_opt.crop_size = self.shape_info["train"]["input_shape"][0]
+            self.otf_opt.dataroot = '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5'
+            self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
+            module = importlib.import_module(
+                "models.%s.opt" % self.model_name
+            )
+            self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt)
+        else:
+            self.otf_opt = None
+        
+
+def load_opt_from_file(file):
+    class opt_class:
+        pass
+
+    opt = opt_class()
+    opt.isTrain = False
+    opt.train_opt_file = file
+    with open(opt.train_opt_file, "r") as f:
+        for line in f:
+            if line == '----------------- Options ---------------\n':
+                pass
+            elif line == '----------------- End -------------------\n':
+                pass
+            else:
+                k = line[:25].strip()
+                v = re.sub(r"\[default\: \S*\]", "", line[27:].strip(), flags=re.IGNORECASE).strip()
+                if len(re.findall("\d", v))>0 and len(re.findall('[a-zA-Z_]', v))==0 and k != 'gpu_ids':
+                    if '.' in v:
+                        v = float(v)
+                    else:
+                        v = int(v)
+                elif v.lower() == 'true':
+                    v = True
+                elif v.lower() == 'false':
+                    v = False
+                setattr(opt, k, v)
+
+    if opt.suffix:
+        suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
+        opt.name = opt.name + suffix
+
+    # self.print_options(opt)
+
+    # set gpu ids
+    str_ids = opt.gpu_ids.split(',')
+    opt.gpu_ids = []
+    for str_id in str_ids:
+        id = int(str_id)
+        if id >= 0:
+            opt.gpu_ids.append(id)
+    if len(opt.gpu_ids) > 0:
+        torch.cuda.set_device(opt.gpu_ids[0])
+
+    if opt.max_dataset_size == "inf":
+        opt.max_dataset_size = float("inf")
+    return opt
