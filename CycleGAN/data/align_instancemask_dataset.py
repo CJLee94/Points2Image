@@ -78,12 +78,12 @@ class AlignInstanceMaskDataset(BaseDataset):
         A_instance, B, P = AB[:1], AB[1:1+3], AB[-1]
 
         # get hv map and binary mask
-        A_instance = A_instance[0].numpy().astype(np.uint8)
+        A_instance = A_instance[0].numpy().astype(np.int32)
         A_masks = gen_targets(A_instance, crop_shape=A_instance.shape)
         #print(A_masks['hv_map'].shape, A_masks['np_map'].shape)  # crop x crop x 2,  crop x crop
         A = np.concatenate((A_masks['hv_map'], A_masks['np_map'][..., None]), axis=-1)
         A = np.transpose(A, (2,0,1))
-        A = torch.from_numpy(A)
+        A = torch.from_numpy(A).float()
         return {'A': A, 'B': B, 'P': P,
                 'A_paths': index, 'B_paths': index}
 
