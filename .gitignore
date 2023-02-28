@@ -1,5 +1,5 @@
 CycleGAN/results/*
-CycleGAN/checkpoints/*
+CycleGAN/checkpoints*/*
 CycleGAN/train_images/*
 *.pyc
 CycleGAN/__pycache__/*
@@ -19,3 +19,5 @@ hover_net/saved_model/*
 **/*.npy
 **/*.tar
 **/*.json
+CycleGAN/scripts/copy.sh
+CycleGAN/scripts/http.sh
