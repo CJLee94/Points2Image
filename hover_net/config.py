@@ -92,6 +92,7 @@ class Config(object):
             self.otf_opt.crop_size = self.shape_info["train"]["input_shape"][0]
             self.otf_opt.dataroot = '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5'
             self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
+            self.otf_opt.preprocess = ['affine', 'crop']
             module = importlib.import_module(
                 "models.%s.opt" % self.model_name
             )

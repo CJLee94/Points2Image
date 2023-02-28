@@ -62,6 +62,20 @@ def worker_init_fn(worker_id):
     worker_info.dataset.setup_augmentor(worker_id, worker_seed)
     return
 
+def worker_init_fn_generator(worker_id):
+    # ! to make the seed chain reproducible, must use the torch random, not numpy
+    # the torch rng from main thread will regenerate a base seed, which is then
+    # copied into the dataloader each time it created (i.e start of each epoch)
+    # then dataloader with this seed will spawn worker, now we reseed the worker
+    worker_info = torch.utils.data.get_worker_info()
+    # to make it more random, simply switch torch.randint to np.randint
+    worker_seed = torch.randint(0, 2 ** 32, (1,))[0].cpu().item() + worker_id
+    # print('Loader Worker %d Uses RNG Seed: %d' % (worker_id, worker_seed))
+    # retrieve the dataset copied into this worker process
+    # then set the random seed for each augmentation
+    worker_info.dataset.set_worker_id_seed(worker_id, worker_seed)
+    return
+
 
 ####
 class TrainManager(Config):
@@ -124,7 +138,7 @@ class TrainManager(Config):
                 batch_size=batch_size * self.nr_gpus,
                 shuffle=run_mode == "train",
                 drop_last=run_mode == "train",
-                # worker_init_fn=worker_init_fn,
+                worker_init_fn=worker_init_fn_generator,
             )
         else:
             input_dataset = FileLoader(

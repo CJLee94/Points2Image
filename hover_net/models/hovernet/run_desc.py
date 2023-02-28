@@ -49,20 +49,37 @@ def train_step(batch_data, run_info):
         }
     else:
         generator = run_info["net"]['extra_info']["generator"]
+        augmentor = run_info["net"]['extra_info']["augmentor"]
+        # augmentor.setup_augmentor(batch_data['worker_id'].numpy(), batch_data['worker_seed'].numpy())
+        # target_mask = batch_data['A']
+        # for sample_idx, tm in enumerate(target_mask):
+            # shape_augs = augmentor.shape_augs.to_deterministic()
+            # target_mask[sample_idx] = torch.from_numpy(shape_augs.augment_image(tm.cpu().numpy().transpose(1,2,0)).copy()).permute(2,0,1).contiguous()
+
         generator.set_input(batch_data)
         with torch.no_grad():
             input_image = generator.netG_A(generator.real_A)  # G_A(A)
             target_mask = generator.real_A
         imgs = torch.clamp(255.0*(input_image+1)/2.0, 0, 255)
+
         true_hv = target_mask[:,:2].permute(0,2,3,1).contiguous()
         true_np = target_mask[:, -1].type(torch.int64)
 
+        for sample_idx, img in enumerate(imgs):
+            input_augs = augmentor.input_augs.to_deterministic()
+            img = img.cpu().numpy().transpose(1,2,0)
+
+            imgs[sample_idx] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
+
+
         true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
+
         true_dict = {
             "np": true_np_onehot,
             "hv": true_hv,
         }
-
+    # import pdb
+    # pdb.set_trace()    
 
     if model.module.nr_types is not None:
         true_tp = batch_data["tp_map"]
