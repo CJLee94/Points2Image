@@ -157,12 +157,19 @@ class BaseOptions():
         # loading configuration from 'train_opt.txt'
         parser.add_argument('--train_opt_file', default='/home/cj/Research/Points2Image/CycleGAN/checkpoints/basic_netD_oasis_netGa_unet256_netGb_cyclegan/train_opt_local.txt', 
                             help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
+        parser.add_argument('--dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5', 
+                            help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
 
         args= parser.parse_args()
 
             
         if args.train_opt_file is None:
             raise ValueError('The train_opt_file cannot be None if you want to load the configuration parameters from a file.')
+        
+        opt = load_opt_from_file(args.train_opt_file)
+
+        if parser.dataroot is not None:
+            opt.dataroot = args.dataroot
         
         return load_opt_from_file(args.train_opt_file)
 

@@ -31,7 +31,6 @@ if __name__ == '__main__':
     opt.no_flip = True
     opt.serial_batches = True
     opt.preprocess = ''
-    opt.dataroot = '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5'
     opt.checkpoints_dir = os.path.split(os.path.split(opt.train_opt_file)[0])[0]
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
