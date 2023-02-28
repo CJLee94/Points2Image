@@ -161,17 +161,15 @@ class BaseOptions():
                             help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
 
         args= parser.parse_args()
-
             
         if args.train_opt_file is None:
             raise ValueError('The train_opt_file cannot be None if you want to load the configuration parameters from a file.')
         
         opt = load_opt_from_file(args.train_opt_file)
-
-        if parser.dataroot is not None:
+        if args.dataroot is not None:
             opt.dataroot = args.dataroot
         
-        return load_opt_from_file(args.train_opt_file)
+        return opt
 
 
 def load_opt_from_file(file):
