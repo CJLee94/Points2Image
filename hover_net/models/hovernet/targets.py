@@ -9,8 +9,77 @@ from scipy.ndimage import measurements
 from skimage import morphology as morph
 import matplotlib.pyplot as plt
 
-from misc.utils import center_pad_to_shape, cropping_center, get_bounding_box
-from dataloader.augs import fix_mirror_padding
+
+####
+def get_bounding_box(img):
+    """Get bounding box coordinate information."""
+    rows = np.any(img, axis=1)
+    cols = np.any(img, axis=0)
+    rmin, rmax = np.where(rows)[0][[0, -1]]
+    cmin, cmax = np.where(cols)[0][[0, -1]]
+    # due to python indexing, need to add 1 to max
+    # else accessing will be 1px in the box, not out
+    rmax += 1
+    cmax += 1
+    return [rmin, rmax, cmin, cmax]
+
+
+####
+def cropping_center(x, crop_shape, batch=False):
+    """Crop an input image at the centre.
+
+    Args:
+        x: input array
+        crop_shape: dimensions of cropped array
+    
+    Returns:
+        x: cropped array
+    
+    """
+    orig_shape = x.shape
+    if not batch:
+        h0 = int((orig_shape[0] - crop_shape[0]) * 0.5)
+        w0 = int((orig_shape[1] - crop_shape[1]) * 0.5)
+        x = x[h0 : h0 + crop_shape[0], w0 : w0 + crop_shape[1]]
+    else:
+        h0 = int((orig_shape[1] - crop_shape[0]) * 0.5)
+        w0 = int((orig_shape[2] - crop_shape[1]) * 0.5)
+        x = x[:, h0 : h0 + crop_shape[0], w0 : w0 + crop_shape[1]]
+    return x
+
+
+####
+def center_pad_to_shape(img, size, cval=255):
+    """Pad input image."""
+    # rounding down, add 1
+    pad_h = size[0] - img.shape[0]
+    pad_w = size[1] - img.shape[1]
+    pad_h = (pad_h // 2, pad_h - pad_h // 2)
+    pad_w = (pad_w // 2, pad_w - pad_w // 2)
+    if len(img.shape) == 2:
+        pad_shape = (pad_h, pad_w)
+    else:
+        pad_shape = (pad_h, pad_w, (0, 0))
+    img = np.pad(img, pad_shape, "constant", constant_values=cval)
+    return img
+
+
+####
+def fix_mirror_padding(ann):
+    """Deal with duplicated instances due to mirroring in interpolation
+    during shape augmentation (scale, rotation etc.).
+    
+    """
+    current_max_id = np.amax(ann)
+    inst_list = list(np.unique(ann))
+    inst_list.remove(0)  # 0 is background
+    for inst_id in inst_list:
+        inst_map = np.array(ann == inst_id, np.uint8)
+        remapped_ids = measurements.label(inst_map)[0]
+        remapped_ids[remapped_ids > 1] += current_max_id
+        ann[remapped_ids > 1] = remapped_ids[remapped_ids > 1]
+        current_max_id = np.amax(ann)
+    return ann
 
 
 ####
@@ -44,14 +113,15 @@ def gen_instance_hv_map(ann, crop_shape):
         # expand the box by 2px
         # Because we first pad the ann at line 207, the bboxes
         # will remain valid after expansion
-        inst_box[0] -= 2
-        inst_box[2] -= 2
-        inst_box[1] += 2
-        inst_box[3] += 2
+        inst_box[0] = max(inst_box[0]-2, 0)
+        inst_box[2] = max(inst_box[2]-2, 0)
+        inst_box[1] = min(inst_box[1]+2, inst_map.shape[1])
+        inst_box[3] = min(inst_box[3]+2, inst_map.shape[0])
 
         inst_map = inst_map[inst_box[0] : inst_box[1], inst_box[2] : inst_box[3]]
 
         if inst_map.shape[0] < 2 or inst_map.shape[1] < 2:
+            print('dumping {}'.format(inst_id))
             continue
 
         # instance center of mass, rounded to nearest pixel
