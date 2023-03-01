@@ -51,6 +51,8 @@ class FileLoader(torch.utils.data.Dataset):
         target_gen=None,
     ):
         assert input_shape is not None and mask_shape is not None
+        self.worker_id = None
+        self.worker_seed = None
         self.mode = mode
         self.info_list = file_list
         self.with_type = with_type
@@ -64,6 +66,8 @@ class FileLoader(torch.utils.data.Dataset):
         return
 
     def setup_augmentor(self, worker_id, seed):
+        self.worker_id = worker_id
+        self.worker_seed = seed
         self.augmentor = self.__get_augmentation(self.mode, seed)
         self.shape_augs = iaa.Sequential(self.augmentor[0])
         self.input_augs = iaa.Sequential(self.augmentor[1])
@@ -112,6 +116,8 @@ class FileLoader(torch.utils.data.Dataset):
             inst_map, self.mask_shape, **self.target_gen_kwargs
         )
         feed_dict.update(target_dict)
+        feed_dict["worker_id"] = self.worker_id
+        feed_dict["worker_seed"] = self.worker_seed
         # for k, v in feed_dict.items():
             # print(k, v.shape)
         return feed_dict
@@ -139,7 +145,7 @@ class FileLoader(torch.utils.data.Dataset):
                 # set position to 'center' for center crop
                 # else 'uniform' for random crop
                 iaa.CropToFixedSize(
-                    self.input_shape[0], self.input_shape[1], position="center"
+                    self.input_shape[0], self.input_shape[1], position="uniform"
                 ),
                 iaa.Fliplr(0.5, seed=rng),
                 iaa.Flipud(0.5, seed=rng),
