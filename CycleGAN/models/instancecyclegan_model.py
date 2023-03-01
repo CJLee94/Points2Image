@@ -46,6 +46,7 @@ class InstanceCycleGANModel(BaseModel):
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             parser.add_argument('--lambda_seg', type=float, default=1.0, help='weight for segmentation loss in the cycle consistency term')
             parser.add_argument('--lambda_hv', type=float, default=1.0, help='weight for hv map loss in the cycle consistency loss')
+            parser.add_argument('--lambda_point', type=float, default=1.0, help='weight for the point loss applied')
         return parser
 
     def __init__(self, opt):
@@ -60,8 +61,10 @@ class InstanceCycleGANModel(BaseModel):
         self.loss_names += ['ABA_hv', 'ABA_seg']
         self.loss_names += ['ABA_point', 'BA_point']
         # specify the images you want to save/display. The training/test scripts will call <BaseModel.get_current_visuals>
-        visual_names_A = ['real_A', 'fake_B', 'rec_A', 'real_P']
+        visual_names_A = ['real_A', 'fake_B', 'rec_A'] #, 'real_P']
         visual_names_B = ['real_B', 'fake_A', 'rec_B']
+        if self.isTrain and self.opt.lambda_point > 0:
+            visual_names_A.append('real_P')
         if self.isTrain and self.opt.lambda_identity > 0.0:  # if identity loss is used, we also visualize idt_B=G_A(B) ad idt_A=G_A(B)
             visual_names_A.append('idt_B')
             visual_names_B.append('idt_A')
@@ -231,6 +234,7 @@ class InstanceCycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
+        lambda_P = self.opt.lambda_point
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed: ||G_A(B) - B||
@@ -248,12 +252,16 @@ class InstanceCycleGANModel(BaseModel):
         # GAN loss D_B(G_B(B))
         self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
         # Point loss on G_B(B)
-        self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P)
+        if lambda_P > 0:
+            self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P) * lambda_P
+            self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P) * lambda_P
+        else:
+            self.loss_BA_point = 0.
+            self.loss_ABA_point = 0.
         # Forward cycle loss || G_B(G_A(A)) - A||
         # NOTE: loss_cycle_A_hv and loss_cycle_A_seg are only for training monitoring. 
         # Their weighted sum is loss_cycle_A
         self.loss_cycle_A, self.loss_ABA_hv, self.loss_ABA_seg = self.criterionInstanceSeg(self.rec_A, self.real_A)
-        self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P)
         self.loss_cycle_A = self.loss_cycle_A * lambda_A
         # Backward cycle loss || G_A(G_B(B)) - B||
         self.loss_cycle_B = self.criterionCycle(self.rec_B, self.real_B) * lambda_B
