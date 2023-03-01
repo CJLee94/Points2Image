@@ -34,7 +34,6 @@ from torch.nn import DataParallel  # TODO: switch to DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from config import Config
-from data import find_dataset_using_name
 from dataloader.train_loader import FileLoader
 from misc.utils import rm_n_mkdir
 from run_utils.engine import RunEngine
@@ -62,19 +61,41 @@ def worker_init_fn(worker_id):
     worker_info.dataset.setup_augmentor(worker_id, worker_seed)
     return
 
-def worker_init_fn_generator(worker_id):
-    # ! to make the seed chain reproducible, must use the torch random, not numpy
-    # the torch rng from main thread will regenerate a base seed, which is then
-    # copied into the dataloader each time it created (i.e start of each epoch)
-    # then dataloader with this seed will spawn worker, now we reseed the worker
-    worker_info = torch.utils.data.get_worker_info()
-    # to make it more random, simply switch torch.randint to np.randint
-    worker_seed = torch.randint(0, 2 ** 32, (1,))[0].cpu().item() + worker_id
-    # print('Loader Worker %d Uses RNG Seed: %d' % (worker_id, worker_seed))
-    # retrieve the dataset copied into this worker process
-    # then set the random seed for each augmentation
-    worker_info.dataset.set_worker_id_seed(worker_id, worker_seed)
-    return
+# def custom_collate(data): #(2)
+#     imgs = torch.cat([torch.tensor(d['img'])[None] for d in data], 0) #(3)
+#     np_maps = torch.cat([torch.tensor(d['np_map'])[None] for d in data], 0)
+#     hv_maps = torch.cat([torch.tensor(d['hv_map'])[None] for d in data], 0)
+#     augs = [d['augmenter'] for d in data]
+#     if 'tp_map' in data[0].keys():
+#         tp_maps = torch.cat([torch.tensor(d['tp_map']) for d in data], 0)
+#         return { #(6)
+#             'img': imgs,
+#             'np_map': np_maps,
+#             'hv_map': hv_maps,
+#             'augmenter': augs,
+#             'tp_map': tp_maps
+#         }
+#     else:
+#         return { #(6)
+#             'img': imgs,
+#             'np_map': np_maps,
+#             'hv_map': hv_maps,
+#             'augmenter': augs
+#         }
+
+# def worker_init_fn_generator(worker_id):
+#     # ! to make the seed chain reproducible, must use the torch random, not numpy
+#     # the torch rng from main thread will regenerate a base seed, which is then
+#     # copied into the dataloader each time it created (i.e start of each epoch)
+#     # then dataloader with this seed will spawn worker, now we reseed the worker
+#     worker_info = torch.utils.data.get_worker_info()
+#     # to make it more random, simply switch torch.randint to np.randint
+#     worker_seed = torch.randint(0, 2 ** 32, (1,))[0].cpu().item() + worker_id
+#     # print('Loader Worker %d Uses RNG Seed: %d' % (worker_id, worker_seed))
+#     # retrieve the dataset copied into this worker process
+#     # then set the random seed for each augmentation
+#     worker_info.dataset.set_worker_id_seed(worker_id, worker_seed)
+#     return
 
 
 ####
@@ -129,35 +150,23 @@ class TrainManager(Config):
         )
         print("Dataset %s: %d" % (run_mode, len(file_list)))
 
-        if self.otf_opt is not None and run_mode=="train":
-            dataclass = find_dataset_using_name(self.otf_opt.dataset_mode)
-            input_dataset = dataclass(self.otf_opt)
-            dataloader = DataLoader(
-                input_dataset,
-                num_workers=nr_procs,
-                batch_size=batch_size * self.nr_gpus,
-                shuffle=run_mode == "train",
-                drop_last=run_mode == "train",
-                worker_init_fn=worker_init_fn_generator,
-            )
-        else:
-            input_dataset = FileLoader(
-                file_list,
-                mode=run_mode,
-                with_type=self.type_classification,
-                setup_augmentor=nr_procs == 0,
-                target_gen=target_gen,
-                **self.shape_info[run_mode]
-            )
+        input_dataset = FileLoader(
+            file_list,
+            mode=run_mode,
+            with_type=self.type_classification,
+            setup_augmentor=nr_procs == 0,
+            target_gen=target_gen,
+            **self.shape_info[run_mode]
+        )
 
-            dataloader = DataLoader(
-                input_dataset,
-                num_workers=nr_procs,
-                batch_size=batch_size * self.nr_gpus,
-                shuffle=run_mode == "train",
-                drop_last=run_mode == "train",
-                worker_init_fn=worker_init_fn,
-            )
+        dataloader = DataLoader(
+            input_dataset,
+            num_workers=nr_procs,
+            batch_size=batch_size * self.nr_gpus,
+            shuffle=run_mode == "train",
+            drop_last=run_mode == "train",
+            worker_init_fn=worker_init_fn,
+        )
         return dataloader
 
     ####
@@ -328,6 +337,8 @@ if __name__ == "__main__":
     parser.add_argument('--train_dir', default=None)
     parser.add_argument('--valid_dir', default=None)
     parser.add_argument('--otf', default=None)
+    parser.add_argument('--otf_dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5')
+    parser.add_argument('--epoch', default=50)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()
