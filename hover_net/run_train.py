@@ -137,7 +137,7 @@ class TrainManager(Config):
         augmenter = Augmenter(mode=run_mode,
                               otf=self.otf_opt is not None,
                               otf_opt=self.otf_opt,
-                              precrop_shape=self.otf_opt.crop_size,
+                              precrop_shape=None if self.otf_opt is None else self.otf_opt.crop_size,
                               target_gen=target_gen,
                               input_shape=self.shape_info[run_mode]["input_shape"])
         return dataloader, augmenter
