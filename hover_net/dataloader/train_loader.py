@@ -66,8 +66,8 @@ class FileLoader(torch.utils.data.Dataset):
         return
 
     def setup_augmentor(self, worker_id, seed):
-        self.worker_id = worker_id
-        self.worker_seed = seed
+        # self.worker_id = worker_id
+        # self.worker_seed = seed
         self.augmentor = self.__get_augmentation(self.mode, seed)
         self.shape_augs = iaa.Sequential(self.augmentor[0])
         self.input_augs = iaa.Sequential(self.augmentor[1])
@@ -93,9 +93,22 @@ class FileLoader(torch.utils.data.Dataset):
             img = shape_augs.augment_image(img)
             ann = shape_augs.augment_image(ann)
 
+        # if idx in [1,2,3,5,6,44,234,9]:
+        #     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        #     axes.imshow(img)
+        #     fig.savefig('before_{}.png'.format(idx))
+        #     plt.close()
         if self.input_augs is not None:
             input_augs = self.input_augs.to_deterministic()
             img = input_augs.augment_image(img)
+
+        # if idx in [1,2,3,5,6,44,234,9]:
+        #     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        #     axes.imshow(img)
+        #     fig.savefig('after_{}.png'.format(idx))
+        #     plt.close()
+        # import pdb
+        # pdb.set_trace()
 
         img = cropping_center(img, self.input_shape)
         feed_dict = {"img": img}
@@ -116,8 +129,7 @@ class FileLoader(torch.utils.data.Dataset):
             inst_map, self.mask_shape, **self.target_gen_kwargs
         )
         feed_dict.update(target_dict)
-        feed_dict["worker_id"] = self.worker_id
-        feed_dict["worker_seed"] = self.worker_seed
+        feed_dict["worker_id"] = torch.utils.data.get_worker_info().id
         # for k, v in feed_dict.items():
             # print(k, v.shape)
         return feed_dict
