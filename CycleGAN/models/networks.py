@@ -1070,6 +1070,8 @@ class OASIS_Generator(nn.Module):
         self.conv_img = nn.Conv2d(self.channels[-1], output_nc, 3, padding=1)
         self.up = nn.Upsample(scale_factor=2)
         self.body = nn.ModuleList([])
+        self.z_synthseg = None
+
         for i in range(len(self.channels)-1):
             self.body.append(ResnetBlock_with_SPADE(self.channels[i], self.channels[i+1], opt))
         if not self.opt.no_3dnoise:
@@ -1078,6 +1080,8 @@ class OASIS_Generator(nn.Module):
             if self.opt.use_synthseg:
                 assert self.opt.z_dim == 1, 'z_dim must be 1'
                 self.fc = nn.Conv2d(input_nc + 1, 16 * ch, 3, padding=1)
+            elif self.opt.use_synthseg_3dnoise:
+                self.fc = nn.Conv2d(input_nc + 1 + self.opt.z_dim, 16 * ch, 3, padding=1)
             else:
                 self.fc = nn.Conv2d(input_nc, 16 * ch, 3, padding=1)
         if final_activation == 'tanh':
@@ -1103,13 +1107,23 @@ class OASIS_Generator(nn.Module):
             z = z.view(z.size(0), self.opt.z_dim, 1, 1)
             z = z.expand(z.size(0), self.opt.z_dim, seg.size(2), seg.size(3))
             seg = torch.cat((z, seg), dim = 1)
+        elif self.opt.use_synthseg:
+            dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
+            z_synthseg = synthseg_from_hvseg_mask_torch(input).to(dev)
+            seg = torch.cat((z_synthseg, seg), dim=1)
+            self.z_synthseg = z_synthseg
+        elif self.opt.use_synthseg_3dnoise:
+            dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
+            z_synthseg = synthseg_from_hvseg_mask_torch(input).to(dev)
+            z = torch.randn(seg.size(0), self.opt.z_dim, dtype=torch.float32, device=dev)
+            z = z.view(z.size(0), self.opt.z_dim, 1, 1)
+            z = z.expand(z.size(0), self.opt.z_dim, seg.size(2), seg.size(3))
+            seg = torch.cat((z, z_synthseg, seg), dim=1)
+            self.z_synthseg = z_synthseg
         else:
-            if self.opt.use_synthseg:
-                dev = seg.get_device() if self.opt.gpu_ids != "-1" else "cpu"
-                z_synthseg = synthseg_from_hvseg_mask_torch(input).to(dev)
-                seg = torch.cat((z_synthseg, seg), dim=1)
+            raise NotImplementedError
         x = F.interpolate(seg, size=(self.init_W, self.init_H))
-        x = self.fc(x)
+        x = self.fc(x)  # bs, 512, 8, 8
         for i in range(self.opt.num_res_blocks):
             x = self.body[i](x, seg)
             if i < self.opt.num_res_blocks-1:
@@ -1549,6 +1563,10 @@ class ResnetBlock_with_SPADE(nn.Module):
             if opt.use_synthseg:
                 assert opt.z_dim == 1, 'synthseg channel must be 1'
                 spade_conditional_input_dims += 1
+            elif opt.use_synthseg_3dnoise:
+                spade_conditional_input_dims += (1+opt.z_dim)
+            else:
+                raise NotImplementedError
         self.norm_0 = norms.SPADE(opt, fin, spade_conditional_input_dims)
         self.norm_1 = norms.SPADE(opt, fmiddle, spade_conditional_input_dims)
         if self.learned_shortcut:

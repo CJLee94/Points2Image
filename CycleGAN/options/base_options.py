@@ -68,6 +68,7 @@ class BaseOptions():
         #parser.add_argument('--EMA_decay', type=float, default=0.9999, help='decay in exponential moving averages')
         parser.add_argument('--no_3dnoise', action='store_true', default=False, help='if specified, do *not* concatenate noise to label maps')
         parser.add_argument('--use_synthseg', action='store_true', default=False, help='if specified, concatenate synthseg instead of noise to label maps')
+        parser.add_argument('--use_synthseg_3dnoise', action='store_true', default=False, help='if specified, concatenate synthseg AND noise to label maps')
         parser.add_argument('--z_dim', type=int, default=64, help="dimension of the latent z vector")
         parser.add_argument('--no_spectral_norm', action='store_true', help='this option deactivates spectral norm in all layers')
 
