@@ -33,7 +33,6 @@ def train_step(batch_data, run_info):
         # imgs = batch_data["img"]
     true_np = batch_data["np_map"]
     true_hv = batch_data["hv_map"]
-
     # HWC
     true_np = true_np.to("cuda").type(torch.int64)
     true_hv = true_hv.to("cuda").type(torch.float32)
@@ -44,21 +43,21 @@ def train_step(batch_data, run_info):
         "hv": true_hv,
     }
 
-    if run_info["net"]['extra_info']["generator"] is None:
-        imgs = batch_data["img"]
-        imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
-        imgs = imgs.permute(0, 3, 1, 2).contiguous()
-    else:
-        generator = run_info["net"]['extra_info']["generator"]
-        augmentor = run_info["net"]['extra_info']["augmentor"]
-        imgs = generator.netG_A(torch.cat([true_hv.permute(0,3,1,2).contiguous(), true_np[:,None]], 1))
-        imgs = torch.clamp(255.0*(imgs+1)/2.0, 0, 255)
-        for sample_id, (img, worker_id, worker_seed) in enumerate(zip(imgs, batch_data['worker_id'], batch_data['worker_seed'])):
-            augmentor.setup_augmentor(worker_id.item(), worker_seed.item())
-            input_augs = augmentor.input_augs.to_deterministic()
-            img = img.detach().cpu().numpy().transpose(1,2,0).astype(np.uint8)
+    # if run_info["net"]['extra_info']["generator"] is None:
+    imgs = batch_data["img"]
+    imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
+    imgs = imgs.permute(0, 3, 1, 2).contiguous()
+    # else:
+    #     generator = run_info["net"]['extra_info']["generator"]
+    #     augmentor = run_info["net"]['extra_info']["augmentor"]
+    #     imgs = generator.netG_A(torch.cat([true_hv.permute(0,3,1,2).contiguous(), true_np[:,None]], 1))
+    #     imgs = torch.clamp(255.0*(imgs+1)/2.0, 0, 255)
+    #     for sample_id, (img, worker_id, worker_seed) in enumerate(zip(imgs, batch_data['worker_id'], batch_data['worker_seed'])):
+    #         augmentor.setup_augmentor(worker_id.item(), worker_seed.item())
+    #         input_augs = augmentor.input_augs.to_deterministic()
+    #         img = img.detach().cpu().numpy().transpose(1,2,0).astype(np.uint8)
 
-            imgs[sample_id] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
+    #         imgs[sample_id] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
 
         
     # else:
