@@ -30,54 +30,63 @@ def train_step(batch_data, run_info):
     ####
     # import pdb
     # pdb.set_trace()
-    if run_info["net"]['extra_info']["generator"] is None:
-        imgs = batch_data["img"]
-        true_np = batch_data["np_map"]
-        true_hv = batch_data["hv_map"]
+        # imgs = batch_data["img"]
+    true_np = batch_data["np_map"]
+    true_hv = batch_data["hv_map"]
+    # HWC
+    true_np = true_np.to("cuda").type(torch.int64)
+    true_hv = true_hv.to("cuda").type(torch.float32)
 
-        imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
-        imgs = imgs.permute(0, 3, 1, 2).contiguous()
+    true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
+    true_dict = {
+        "np": true_np_onehot,
+        "hv": true_hv,
+    }
 
-        # HWC
-        true_np = true_np.to("cuda").type(torch.int64)
-        true_hv = true_hv.to("cuda").type(torch.float32)
+    # if run_info["net"]['extra_info']["generator"] is None:
+    imgs = batch_data["img"]
+    imgs = imgs.to("cuda").type(torch.float32)  # to NCHW
+    imgs = imgs.permute(0, 3, 1, 2).contiguous()
+    # else:
+    #     generator = run_info["net"]['extra_info']["generator"]
+    #     augmentor = run_info["net"]['extra_info']["augmentor"]
+    #     imgs = generator.netG_A(torch.cat([true_hv.permute(0,3,1,2).contiguous(), true_np[:,None]], 1))
+    #     imgs = torch.clamp(255.0*(imgs+1)/2.0, 0, 255)
+    #     for sample_id, (img, worker_id, worker_seed) in enumerate(zip(imgs, batch_data['worker_id'], batch_data['worker_seed'])):
+    #         augmentor.setup_augmentor(worker_id.item(), worker_seed.item())
+    #         input_augs = augmentor.input_augs.to_deterministic()
+    #         img = img.detach().cpu().numpy().transpose(1,2,0).astype(np.uint8)
 
-        true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
-        true_dict = {
-            "np": true_np_onehot,
-            "hv": true_hv,
-        }
-    else:
-        generator = run_info["net"]['extra_info']["generator"]
-        augmentor = run_info["net"]['extra_info']["augmentor"]
-        # augmentor.setup_augmentor(batch_data['worker_id'].numpy(), batch_data['worker_seed'].numpy())
-        # target_mask = batch_data['A']
-        # for sample_idx, tm in enumerate(target_mask):
-            # shape_augs = augmentor.shape_augs.to_deterministic()
-            # target_mask[sample_idx] = torch.from_numpy(shape_augs.augment_image(tm.cpu().numpy().transpose(1,2,0)).copy()).permute(2,0,1).contiguous()
+    #         imgs[sample_id] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
 
-        generator.set_input(batch_data)
-        with torch.no_grad():
-            input_image = generator.netG_A(generator.real_A)  # G_A(A)
-            target_mask = generator.real_A
-        imgs = torch.clamp(255.0*(input_image+1)/2.0, 0, 255)
+        
+    # else:
+    #     generator = run_info["net"]['extra_info']["generator"]
+    #     augmentor = run_info["net"]['extra_info']["augmentor"]
+    #     augmentor.setup_augmentor(batch_data['worker_id'].numpy(), batch_data['worker_seed'].numpy())
 
-        true_hv = target_mask[:,:2].permute(0,2,3,1).contiguous()
-        true_np = target_mask[:, -1].type(torch.int64)
+    #     generator.set_input(batch_data)
+    #     with torch.no_grad():
+    #         input_image = generator.netG_A(generator.real_A)  # G_A(A)
+    #         target_mask = generator.real_A
+    #     imgs = torch.clamp(255.0*(input_image+1)/2.0, 0, 255)
 
-        for sample_idx, img in enumerate(imgs):
-            input_augs = augmentor.input_augs.to_deterministic()
-            img = img.cpu().numpy().transpose(1,2,0)
+    #     true_hv = target_mask[:,:2].permute(0,2,3,1).contiguous()
+    #     true_np = target_mask[:, -1].type(torch.int64)
 
-            imgs[sample_idx] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
+    #     for sample_idx, img in enumerate(imgs):
+    #         input_augs = augmentor.input_augs.to_deterministic()
+    #         img = img.cpu().numpy().transpose(1,2,0).astype(np.uint8)
+
+    #         imgs[sample_idx] = torch.from_numpy(input_augs.augment_image(img).copy()).permute(2,0,1)
 
 
-        true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
+    #     true_np_onehot = (F.one_hot(true_np, num_classes=2)).type(torch.float32)
 
-        true_dict = {
-            "np": true_np_onehot,
-            "hv": true_hv,
-        }
+    #     true_dict = {
+    #         "np": true_np_onehot,
+    #         "hv": true_hv,
+    #     }
     # import pdb
     # pdb.set_trace()    
 

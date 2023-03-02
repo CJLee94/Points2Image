@@ -28,6 +28,13 @@ from .net_desc import create_model
 from generative_models import create_model as create_generator
 from .run_desc import proc_valid_step_output, train_step, valid_step, viz_step_output
 
+# class Augmenter(nn.Module):
+#     def __init__(self) -> None:
+#         super().__init__()
+#         self.mode = 'train'
+#         self.id = 0
+#         self.input_shape = [256,256]
+#         self.setup_augmentor(0,0)
 
 def make_generator(opt):
     generator = create_generator(opt)      # create a cyclegan model
@@ -138,7 +145,7 @@ class Augmenter(nn.Module):
 
 # TODO: training config only ?
 # TODO: switch all to function name String for all option
-def get_config(nr_type, mode, otf_opt=None):
+def get_config(nr_type, mode, otf_opt=None, epoch=50):
     return {
         # ------------------------------------------------------------------
         # ! All phases have the same number of run engine
@@ -160,7 +167,7 @@ def get_config(nr_type, mode, otf_opt=None):
                             },
                         ],
                         # learning rate scheduler
-                        "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, 25),
+                        "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, epoch//2),
                         "extra_info": {
                             "generator": make_generator(otf_opt) if otf_opt is not None else None,
                             "augmentor": Augmenter(),
@@ -178,7 +185,7 @@ def get_config(nr_type, mode, otf_opt=None):
                 },
                 "target_info": {"gen": (gen_targets, {}), "viz": (prep_sample, {})},
                 "batch_size": {"train": 16, "valid": 2,},  # engine name : value
-                "nr_epochs": 50,
+                "nr_epochs": epoch,
             },
             {
                 "run_info": {
@@ -196,7 +203,7 @@ def get_config(nr_type, mode, otf_opt=None):
                             },
                         ],
                         # learning rate scheduler
-                        "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, 25),
+                        "lr_scheduler": lambda x: optim.lr_scheduler.StepLR(x, epoch//2),
                         "extra_info": {
                             "generator": make_generator(otf_opt) if otf_opt is not None else None,
                             "augmentor": Augmenter(),
@@ -213,7 +220,7 @@ def get_config(nr_type, mode, otf_opt=None):
                 },
                 "target_info": {"gen": (gen_targets, {}), "viz": (prep_sample, {})},
                 "batch_size": {"train": 4, "valid": 2,}, # batch size per gpu
-                "nr_epochs": 50,
+                "nr_epochs": epoch,
             },
         ],
         # ------------------------------------------------------------------

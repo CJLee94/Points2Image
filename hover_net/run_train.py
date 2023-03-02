@@ -34,8 +34,7 @@ from torch.nn import DataParallel  # TODO: switch to DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from config import Config
-from data import find_dataset_using_name
-from dataloader.train_loader import FileLoader
+from dataloader.train_loader import FileLoader, Augmenter
 from misc.utils import rm_n_mkdir
 from run_utils.engine import RunEngine
 from run_utils.utils import (
@@ -62,19 +61,6 @@ def worker_init_fn(worker_id):
     worker_info.dataset.setup_augmentor(worker_id, worker_seed)
     return
 
-def worker_init_fn_generator(worker_id):
-    # ! to make the seed chain reproducible, must use the torch random, not numpy
-    # the torch rng from main thread will regenerate a base seed, which is then
-    # copied into the dataloader each time it created (i.e start of each epoch)
-    # then dataloader with this seed will spawn worker, now we reseed the worker
-    worker_info = torch.utils.data.get_worker_info()
-    # to make it more random, simply switch torch.randint to np.randint
-    worker_seed = torch.randint(0, 2 ** 32, (1,))[0].cpu().item() + worker_id
-    # print('Loader Worker %d Uses RNG Seed: %d' % (worker_id, worker_seed))
-    # retrieve the dataset copied into this worker process
-    # then set the random seed for each augmentation
-    worker_info.dataset.set_worker_id_seed(worker_id, worker_seed)
-    return
 
 
 ####
@@ -98,8 +84,9 @@ class TrainManager(Config):
         phase_list = self.model_config["phase_list"][0]
         target_info = phase_list["target_info"]
         prep_func, prep_kwargs = target_info["viz"]
-        dataloader = self._get_datagen(2, mode, target_info["gen"])
+        dataloader, augmenter = self._get_datagen(2, mode, target_info["gen"])
         for batch_id, batch_data in enumerate(dataloader):  
+            batch_data = augmenter(batch_data)
             # convert from Tensor to Numpy
             batch_data = {k: v.numpy() for k, v in batch_data.items()}
             viz = prep_func(batch_data, is_batch=True, **prep_kwargs)
@@ -129,36 +116,31 @@ class TrainManager(Config):
         )
         print("Dataset %s: %d" % (run_mode, len(file_list)))
 
-        if self.otf_opt is not None and run_mode=="train":
-            dataclass = find_dataset_using_name(self.otf_opt.dataset_mode)
-            input_dataset = dataclass(self.otf_opt)
-            dataloader = DataLoader(
-                input_dataset,
-                num_workers=nr_procs,
-                batch_size=batch_size * self.nr_gpus,
-                shuffle=run_mode == "train",
-                drop_last=run_mode == "train",
-                worker_init_fn=worker_init_fn_generator,
-            )
-        else:
-            input_dataset = FileLoader(
-                file_list,
-                mode=run_mode,
-                with_type=self.type_classification,
-                setup_augmentor=nr_procs == 0,
-                target_gen=target_gen,
-                **self.shape_info[run_mode]
-            )
+        input_dataset = FileLoader(
+            file_list,
+            mode=run_mode,
+            with_type=self.type_classification,
+            setup_augmentor=nr_procs == 0,
+            target_gen=target_gen,
+            **self.shape_info[run_mode]
+        )
 
-            dataloader = DataLoader(
-                input_dataset,
-                num_workers=nr_procs,
-                batch_size=batch_size * self.nr_gpus,
-                shuffle=run_mode == "train",
-                drop_last=run_mode == "train",
-                worker_init_fn=worker_init_fn,
-            )
-        return dataloader
+        dataloader = DataLoader(
+            input_dataset,
+            num_workers=nr_procs,
+            batch_size=batch_size * self.nr_gpus,
+            shuffle=run_mode == "train",
+            drop_last=run_mode == "train",
+            # worker_init_fn=worker_init_fn,
+        )
+
+        augmenter = Augmenter(mode=run_mode,
+                              otf=self.otf_opt is not None,
+                              otf_opt=self.otf_opt,
+                              precrop_shape=None if self.otf_opt is None else self.otf_opt.crop_size,
+                              target_gen=target_gen,
+                              input_shape=self.shape_info[run_mode]["input_shape"])
+        return dataloader, augmenter
 
     ####
     def run_once(self, opt, run_engine_opt, log_dir, prev_log_dir=None, fold_idx=0):
@@ -250,7 +232,7 @@ class TrainManager(Config):
             optimizer, optimizer_args = net_info["optimizer"]
             optimizer = optimizer(net_desc.parameters(), **optimizer_args)
             # TODO: expand for external aug for scheduler
-            nr_iter = opt["nr_epochs"] * len(loader_dict["train"])
+            nr_iter = opt["nr_epochs"] * len(loader_dict["train"][0])
             scheduler = net_info["lr_scheduler"](optimizer)
             net_run_info[net_name] = {
                 "desc": net_desc,
@@ -328,6 +310,9 @@ if __name__ == "__main__":
     parser.add_argument('--train_dir', default=None)
     parser.add_argument('--valid_dir', default=None)
     parser.add_argument('--otf', default=None)
+    parser.add_argument('--precrop_size', default=384, type=int)
+    parser.add_argument('--otf_dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5')
+    parser.add_argument('--epoch', type=int, default=50)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()

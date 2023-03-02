@@ -75,6 +75,7 @@ class Config(object):
             "models.%s.opt" % self.model_name
         )
         self.model_config = module.get_config(self.nr_type, self.model_mode)
+        self.otf_opt = None
     
     def load_config_from_args(self, args):
         if args.train_dir is not None:
@@ -89,15 +90,16 @@ class Config(object):
 
         if args.otf is not None:
             self.otf_opt = load_opt_from_file(args.otf) 
-            self.otf_opt.crop_size = self.shape_info["train"]["input_shape"][0]
-            self.otf_opt.dataroot = '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5'
+            self.otf_opt.crop_size = args.precrop_size
+            self.otf_opt.dataroot = args.otf_dataroot
             self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
-            self.otf_opt.preprocess = ['affine', 'crop']
+            self.otf_opt.preprocess = ''
             module = importlib.import_module(
                 "models.%s.opt" % self.model_name
             )
-            self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt)
-            self.log_dir = os.path.join('./logs', exp_name+'_otf')
+
+            self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
+            self.log_dir = os.path.join('./logs', exp_name+'_otf'+'_{}'.format(args.epoch))
         else:
             self.otf_opt = None
         
