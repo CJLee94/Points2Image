@@ -99,7 +99,7 @@ class Config(object):
             )
 
             self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
-            self.log_dir = os.path.join('./logs', exp_name+'_otf')
+            self.log_dir = os.path.join('./logs', exp_name+'_otf'+'_{}'.format(args.epoch))
         else:
             self.otf_opt = None
         
