@@ -90,10 +90,10 @@ class Config(object):
 
         if args.otf is not None:
             self.otf_opt = load_opt_from_file(args.otf) 
-            self.otf_opt.crop_size = args.precrop_size
+            self.otf_opt.crop_size = self.shape_info["train"]["input_shape"][0]
             self.otf_opt.dataroot = args.otf_dataroot
             self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
-            self.otf_opt.preprocess = ''
+            self.otf_opt.preprocess = ['affine', 'crop']
             module = importlib.import_module(
                 "models.%s.opt" % self.model_name
             )

@@ -68,8 +68,6 @@ class State(object):
         return
 
 
-
-
 ####
 class RunEngine(object):
     """
@@ -88,7 +86,7 @@ class RunEngine(object):
         # * auto set all input as object variables
         self.engine_name = engine_name
         self.run_step = run_step
-        self.dataloader, self.augmenter = dataloader
+        self.dataloader = dataloader
 
         # * global variable/object holder shared between all event handler
         self.state = State()
@@ -96,7 +94,7 @@ class RunEngine(object):
         self.state.attached_engine_name = engine_name  # TODO: redundant?
         self.state.run_info = run_info
         self.state.log_info = log_info
-        self.state.batch_size = self.dataloader.batch_size
+        self.state.batch_size = dataloader.batch_size
 
         # TODO: [CRITICAL] match all the mechanism outline with opt
         self.state.pertain_n_epoch_output = 1 if engine_name == "valid" else 1
@@ -181,7 +179,6 @@ class RunEngine(object):
                         "step": self.state.curr_global_step,
                     },
                 ]
-                data_batch = self.augmenter(data_batch)
                 step_output = self.run_step(data_batch, step_run_info)
                 self.state.step_output = step_output
 
