@@ -12,6 +12,7 @@ import h5py
 import os
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
+from tqdm import tqdm
 
 
 def center_crop(data_dict, crop_size=1000):
@@ -56,7 +57,42 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8):
         print(gen_patches.shape, real_patches.shape)
         return gen_patches, real_patches
 
+"""
+ckpt_dir="/scratch/mr5295/projects/Points2Image/CycleGAN/checkpoints_0227/"
+data_root="/scratch/mr5295/data/point2image/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5"
 
+ckpt_dir="/home/mengwei/redwood_research/Points2Image/CycleGAN/checkpoints_0227/"
+data_root="/home/mengwei/redwood_research/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5"
+
+ckpt_dir="/scratch/mr5295/projects/Points2Image/CycleGAN/checkpoints/"
+data_root="/scratch/mr5295/data/point2image/processed_data/MoNuSeg_train_v3.h5"
+
+name="Ga_resnet_Gb_resnet_bs12_colormask_v3"
+name="v4_align_Ga_oasis_noise1_Gb_oasis_noise1_cyc5"
+name="v4_align_Ga_oasis_synth_Gb_oasis_synth_cyc5"
+name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss_w_ploss"
+name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss"
+name="v4_align_Ga_oasis_synth_Gb_hovernet_cyc5"
+name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss"
+
+python generate_datasets_for_inception.py \
+--train_opt_file ${ckpt_dir}/${name}/train_opt.txt \
+--dataroot ${data_root}
+
+cd util/gan-metrics-pytorch/
+python kid_score.py \
+--true ${ckpt_dir}/${name}/generated_patches/real.npy \
+--fake ${ckpt_dir}/${name}/generated_patches/generated.npy \
+--batch-size 32 \
+--gpu 0
+
+python fid_score.py \
+--true ${ckpt_dir}/${name}/generated_patches/real.npy \
+--fake ${ckpt_dir}/${name}/generated_patches/generated.npy \
+--batch-size 32 \
+--gpu 0
+
+"""
 if __name__ == '__main__':
     opt = TrainOptions().load_opt()   # get training options
     opt.batch_size = 1
@@ -67,8 +103,8 @@ if __name__ == '__main__':
     opt.checkpoints_dir = os.path.split(os.path.split(opt.train_opt_file)[0])[0]
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     #print(dataset.dataset.dir)
-    with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
-        uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][...,0].astype(np.int64))
+    #with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
+    #    uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][...,0].astype(np.int64))
 
     opt.crop_size = 256
     model = create_model(opt)      # create a cyclegan model
@@ -81,8 +117,8 @@ if __name__ == '__main__':
     
     fake_images_all = list()
     real_images_all = list()
-    for i, data in enumerate(dataset):  # inner loop within one epoch
-        gen_patches, real_patches = run_inference(model, data, 1000, 256, 32)
+    for i, data in tqdm(enumerate(dataset)):  # inner loop within one epoch
+        gen_patches, real_patches = run_inference(model, data, 1000, 256, 24)
         '''sanity check'''
         fig, axes = plt.subplots(2,2,figsize=(10,10))
         axes[0, 0].imshow(np.transpose(0.5*(1+gen_patches[0]), (1,2,0)))
