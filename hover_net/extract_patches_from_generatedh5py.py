@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     # Name of dataset - use Kumar, CPM17 or CoNSeP.
     # This used to get the specific dataset img and ann loading scheme from dataset.py
-    exp_name = 'Ga_oasis_Gb_oasis_D_basic_sn_bs12_ngf32_v4_norm_instance'
+    exp_name = 'v4_align_Ga_oasis_synth_Gb_oasis_synth_cyc5'
     dataset_name = "monuseg_{}".format(exp_name)
     save_root = "dataset/training_data/%s/" % dataset_name
 
@@ -89,7 +89,7 @@ if __name__ == "__main__":
             # )
 
             # *
-            img = np.concatenate([img, ann], axis=-1)
+            img = np.concatenate([img, ann[..., None]], axis=-1)
             sub_patches = xtractor.extract(img, extract_type)
 
             pbar_format = "Extracting  : |{bar}| {n_fmt}/{total_fmt}[{elapsed}<{remaining},{rate_fmt}]"

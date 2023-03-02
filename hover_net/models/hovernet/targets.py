@@ -169,13 +169,9 @@ def gen_instance_hv_map(ann, crop_shape):
 ####
 def gen_targets(ann, crop_shape, **kwargs):
     """Generate the targets for the network."""
-    if len(ann.shape) == 3:
-        hv_map = ann[..., :2].copy().astype(np.float32)
-        np_map = ann[..., -1].copy().astype(np.int32)
-    else:
-        hv_map = gen_instance_hv_map(ann, crop_shape)
-        np_map = ann.copy()
-        np_map[np_map > 0] = 1
+    hv_map = gen_instance_hv_map(ann, crop_shape)
+    np_map = ann.copy()
+    np_map[np_map > 0] = 1
     # print(hv_map.dtype, np_map.shape)
     hv_map = cropping_center(hv_map, crop_shape)
     np_map = cropping_center(np_map, crop_shape)
