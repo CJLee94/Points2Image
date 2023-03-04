@@ -90,18 +90,19 @@ class Config(object):
 
         if args.otf is not None:
             self.otf_opt = load_opt_from_file(args.otf) 
-            self.otf_opt.crop_size = args.precrop_size
+            self.otf_opt.crop_size = self.shape_info["train"]["input_shape"][0]
             self.otf_opt.dataroot = args.otf_dataroot
             self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
-            self.otf_opt.preprocess = ''
-            module = importlib.import_module(
-                "models.%s.opt" % self.model_name
-            )
-
-            self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
-            self.log_dir = os.path.join('./logs', exp_name+'_otf'+'_{}'.format(args.epoch))
+            self.otf_opt.preprocess = ['affine', 'crop']
+            self.log_dir = os.path.join('./logs', exp_name+'_otf')
         else:
             self.otf_opt = None
+        module = importlib.import_module(
+                "models.%s.opt" % self.model_name
+            )
+        self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
+        self.log_dir = self.log_dir + '_{}'.format(args.epoch)
+        
         
         if not os.path.exists(self.log_dir):
                 os.mkdir(self.log_dir)

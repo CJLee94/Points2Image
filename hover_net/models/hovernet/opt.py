@@ -1,5 +1,6 @@
 import torch.optim as optim
 import torch.nn as nn
+import torch
 from imgaug import augmenters as iaa
 from dataloader.augs import (
     add_to_brightness,
@@ -49,13 +50,19 @@ class Augmenter(nn.Module):
         self.mode = 'train'
         self.id = 0
         self.input_shape = [256,256]
-        self.setup_augmentor(0,0)
+        # self.setup_augmentor(0,0)
+        self.augmenter_dict = dict()
 
-    def setup_augmentor(self, worker_id, seed):
-        self.augmentor = self.__get_augmentation(self.mode, seed)
-        self.shape_augs = iaa.Sequential(self.augmentor[0])
-        self.input_augs = iaa.Sequential(self.augmentor[1])
-        self.id = self.id + worker_id
+    def setup_augmentor(self, worker_id):
+        if worker_id not in self.augmenter_dict.keys():
+            seed = torch.randint(0, 2 ** 32, (1,))[0].cpu().item() + worker_id
+            augmenter = self.__get_augmentation(self.mode, seed)
+            self.augmenter_dict[worker_id] = {
+                'shape_augmenter': iaa.Sequential(augmenter[0]),
+                'input_augmenter': iaa.Sequential(augmenter[1])
+            }
+            self.id = self.id + worker_id
+        return self.augmenter_dict[worker_id]
 
     def __get_augmentation(self, mode, rng):
         if mode == "train":

@@ -161,7 +161,9 @@ class AccumulateRawOutput(BaseCallbacks):
         accumulated_output = state.epoch_accumulated_output
 
         for key, step_value in step_output.items():
-            if key in accumulated_output:
+            if key == 'phase_id':
+                accumulated_output[key] = step_value
+            elif key in accumulated_output:
                 accumulated_output[key].extend(list(step_value))
             else:
                 accumulated_output[key] = list(step_value)
