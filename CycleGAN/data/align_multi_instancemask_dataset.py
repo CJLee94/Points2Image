@@ -73,7 +73,7 @@ class AlignMultiInstanceMaskDataset(BaseDataset):
         B_img = torch.from_numpy(B_img)
         
         P_img = hd['points_masks'][index]
-        P_img = P_img.astype(np.float32)
+        P_img = P_img.astype(np.float32) / 255.
         P_img = torch.from_numpy(P_img[None, ...])
 
         # apply image transformation (A and B will have the same point annotation)
