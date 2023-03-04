@@ -94,14 +94,13 @@ class Config(object):
             self.otf_opt.dataroot = args.otf_dataroot
             self.otf_opt.checkpoints_dir = os.path.split(os.path.split(self.otf_opt.train_opt_file)[0])[0]
             self.otf_opt.preprocess = ['affine', 'crop']
-            module = importlib.import_module(
-                "models.%s.opt" % self.model_name
-            )
-
-            self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
-            self.log_dir = os.path.join('./logs', exp_name+'_otf'+'_{}'.format(args.epoch))
         else:
             self.otf_opt = None
+        module = importlib.import_module(
+                "models.%s.opt" % self.model_name
+            )
+        self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
+        self.log_dir = os.path.join('./logs', exp_name+'_otf'+'_{}'.format(args.epoch))
         
         if not os.path.exists(self.log_dir):
                 os.mkdir(self.log_dir)

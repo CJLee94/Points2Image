@@ -170,7 +170,7 @@ class TrainManager(Config):
         return dataloader
 
     ####
-    def run_once(self, opt, run_engine_opt, log_dir, prev_log_dir=None, fold_idx=0):
+    def run_once(self, opt, run_engine_opt, log_dir, prev_log_dir=None, fold_idx=0, phase_id=None):
         """Simply run the defined run_step of the related method once."""
         check_manual_seed(self.seed)
 
@@ -284,6 +284,7 @@ class TrainManager(Config):
                 run_step=runner_opt["run_step"],
                 run_info=net_run_info,
                 log_info=log_info,
+                phase_id=phase_id,
             )
 
         for runner_name, runner in runner_dict.items():
@@ -324,7 +325,7 @@ class TrainManager(Config):
             else:
                 save_path = self.log_dir + "/%02d/" % (phase_idx)
             self.run_once(
-                phase_info, engine_opt, save_path, prev_log_dir=prev_save_path
+                phase_info, engine_opt, save_path, prev_log_dir=prev_save_path, phase_id=phase_idx,
             )
             prev_save_path = save_path
 
@@ -338,7 +339,7 @@ if __name__ == "__main__":
     parser.add_argument('--valid_dir', default=None)
     parser.add_argument('--otf', default=None)
     parser.add_argument('--otf_dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5')
-    parser.add_argument('--epoch', default=50)
+    parser.add_argument('--epoch', default=50, type=int)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()

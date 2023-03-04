@@ -80,13 +80,15 @@ class RunEngine(object):
         dataloader=None,
         run_step=None,
         run_info=None,
-        log_info=None,  # TODO: refactor this with trainer.py
+        log_info=None, 
+        phase_id=None # TODO: refactor this with trainer.py
     ):
 
         # * auto set all input as object variables
         self.engine_name = engine_name
         self.run_step = run_step
         self.dataloader = dataloader
+        self.phase_id = phase_id
 
         # * global variable/object holder shared between all event handler
         self.state = State()
@@ -179,7 +181,7 @@ class RunEngine(object):
                         "step": self.state.curr_global_step,
                     },
                 ]
-                step_output = self.run_step(data_batch, step_run_info)
+                step_output = self.run_step(data_batch, step_run_info, self.phase_id)
                 self.state.step_output = step_output
 
                 self.__trigger_events(Events.STEP_COMPLETED)

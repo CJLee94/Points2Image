@@ -112,6 +112,7 @@ class FileLoader(torch.utils.data.Dataset):
 
         img = cropping_center(img, self.input_shape)
         feed_dict = {"img": img}
+        feed_dict["inst_map"] = ann[...,0].copy()
 
         if len(ann.shape)==3 and ann.shape[-1]==3:
             inst_map = ann
