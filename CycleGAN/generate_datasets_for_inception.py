@@ -74,6 +74,10 @@ name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss_w_ploss"
 name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss"
 name="v4_align_Ga_oasis_synth_Gb_hovernet_cyc5"
 name="v4_align_Ga_resnet_Gb_resnet_cyclegan_w_segloss"
+name="v4_unalign_norm_Ga_resnet_Gb_resnet_cyclegan"
+
+name="v4_align_Ga_resnetZ_Gb_resnet"
+name="v4_align_Ga_oasis_noise1_Gb_hover_no_pointloss"
 
 python generate_datasets_for_inception.py \
 --train_opt_file ${ckpt_dir}/${name}/train_opt.txt \
@@ -81,14 +85,14 @@ python generate_datasets_for_inception.py \
 
 cd util/gan-metrics-pytorch/
 python kid_score.py \
---true ${ckpt_dir}/${name}/generated_patches/real.npy \
---fake ${ckpt_dir}/${name}/generated_patches/generated.npy \
+--true ${ckpt_dir}/${name}/generated_patches_test/real.npy \
+--fake ${ckpt_dir}/${name}/generated_patches_test/generated.npy \
 --batch-size 32 \
 --gpu 0
 
 python fid_score.py \
---true ${ckpt_dir}/${name}/generated_patches/real.npy \
---fake ${ckpt_dir}/${name}/generated_patches/generated.npy \
+--true ${ckpt_dir}/${name}/generated_patches_test/real.npy \
+--fake ${ckpt_dir}/${name}/generated_patches_test/generated.npy \
 --batch-size 32 \
 --gpu 0
 
@@ -100,6 +104,7 @@ if __name__ == '__main__':
     opt.no_flip = True
     opt.serial_batches = True
     opt.preprocess = ''
+    opt.gpu_ids = [0]
     opt.checkpoints_dir = os.path.split(os.path.split(opt.train_opt_file)[0])[0]
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     #print(dataset.dataset.dir)
@@ -111,14 +116,18 @@ if __name__ == '__main__':
     model.isTrain = False
     model.setup(opt)               # regular setup: load and print networks; create schedulers
     model.eval()
-
-    save_subdir = os.path.join(model.save_dir, 'generated_patches')
+    if 'test' in opt.dataroot:
+        save_subdir = os.path.join(model.save_dir, 'generated_patches_test')
+        overlap=8
+    else:
+        save_subdir = os.path.join(model.save_dir, 'generated_patches_train')
+        overlap=24    
     os.makedirs(save_subdir, exist_ok=True)
-    
+    print(save_subdir)
     fake_images_all = list()
     real_images_all = list()
     for i, data in tqdm(enumerate(dataset)):  # inner loop within one epoch
-        gen_patches, real_patches = run_inference(model, data, 1000, 256, 24)
+        gen_patches, real_patches = run_inference(model, data, 1000, 256, overlap) #24)
         '''sanity check'''
         fig, axes = plt.subplots(2,2,figsize=(10,10))
         axes[0, 0].imshow(np.transpose(0.5*(1+gen_patches[0]), (1,2,0)))

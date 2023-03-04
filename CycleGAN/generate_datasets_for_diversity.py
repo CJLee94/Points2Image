@@ -13,6 +13,7 @@ import os
 import matplotlib.pyplot as plt
 import torchvision.transforms as transforms
 from tqdm import tqdm
+from util.visualizer import create_group_fig
 
 
 def center_crop(data_dict, crop_size=1000):
@@ -34,6 +35,7 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8, sampl
         mean_patches = list()
         input_patches = list()
         synthseg_patches = list()
+        point_patches = list()
 
         for i in np.arange(0, input_size, overlap):
             for j in np.arange(0, input_size, patch_size-overlap):
@@ -46,6 +48,8 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8, sampl
                         assert data[key].shape[2] == data[key].shape[3], 'only support w=h for now.'
                         patch_data[key] = data[key][:, :, i:i+patch_size, j:j+patch_size]
                         #print('patch', i, i+patch_size, j, j+patch_size, key, patch_data[key].shape)  
+                    elif len(data[key].shape) == 3:
+                        patch_data[key] = data[key][:, i:i+patch_size, j:j+patch_size]
                     else:
                         patch_data[key] = data[key]
                 # sample multiple times 
@@ -57,6 +61,8 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8, sampl
                         gen_patch = model.netG_A(model.real_A)  # G_A(A)
                         real_patch = model.real_B
                         input_patch = model.real_A
+                        if 'real_P' in data.keys():
+                            point_patch = model.real_P
                         if model.opt.use_synthseg:
                             synthseg_patch = model.netG_A.module.z_synthseg
                             synthseg_patch_numpy = synthseg_patch[0].detach().cpu().numpy()
@@ -83,31 +89,37 @@ def run_inference(model, data, input_size=1000, patch_size=256, overlap=8, sampl
                 real_patches.append(real_patch_numpy[None, ...])
                 input_patch_numpy = input_patch[0].detach().cpu().numpy()
                 input_patches.append(input_patch_numpy[None, ...])
-
+                if 'real_P' in data.keys():
+                    point_patch_numpy = point_patch[0].detach().cpu().numpy()
+                    point_patches.append(point_patch_numpy[None, ...])
 
         gen_patches = np.concatenate(gen_patches, axis=0)
         if model.opt.use_synthseg:
             synthseg_patches = np.concatenate(synthseg_patches, axis=0)
         real_patches = np.concatenate(real_patches, axis=0)
         input_patches = np.concatenate(input_patches, axis=0)
+        if 'real_P' in data.keys():
+            point_patches = np.concatenate(point_patches, axis=0)
 
         std_patches = np.concatenate(std_patches, axis=0)
         mean_patches = np.concatenate(mean_patches, axis=0)
         print(gen_patches.shape, real_patches.shape, std_patches.shape, mean_patches.shape)
         #(max_image, sample_times, 3, 256, 256) (max_image, 3, 256, 256) (max_image, 3, 256, 256)
-        return input_patches, gen_patches, real_patches, std_patches, mean_patches, synthseg_patches
+        return input_patches, gen_patches, real_patches, std_patches, mean_patches, synthseg_patches, point_patches
 
 """
 ckpt_dir="/scratch/mr5295/projects/Points2Image/CycleGAN/checkpoints_0227/"
 data_root="/scratch/mr5295/data/point2image/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5"
 ckpt_dir="/home/mengwei/redwood_research/Points2Image/CycleGAN/checkpoints_0227/"
 data_root="/home/mengwei/redwood_research/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5"
+data_root="/home/mengwei/redwood_research/processed_data/MoNuSeg_train_v3.h5"
 
 name="v4_unalign_Ga_resnet_Gb_resnet_cyclegan_w_segloss"
 name="v4_align_Ga_oasis_noise1_Gb_oasis_noise1_cyc5"
 name="v4_align_Ga_oasis_synth_Gb_oasis_synth_cyc5"
 name="v4_align_Ga_oasis_synth_Gb_hovernet_cyc5"
 name="v4_align_Ga_oasis_noise1_Gb_hover_cyc5"
+name="Ga_resnet_Gb_resnet_bs12_colormask_v3"
 python generate_datasets_for_diversity.py \
 --train_opt_file ${ckpt_dir}/${name}/train_opt.txt \
 --dataroot ${data_root}
@@ -124,8 +136,8 @@ if __name__ == '__main__':
     opt.checkpoints_dir = os.path.split(os.path.split(opt.train_opt_file)[0])[0]
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     #print(dataset.dataset.dir)
-    with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
-        uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][...,0].astype(np.int64))
+    #with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
+    #    uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][...,0].astype(np.int64))
 
     opt.crop_size = 256
     model = create_model(opt)      # create a cyclegan model
@@ -133,19 +145,60 @@ if __name__ == '__main__':
     model.setup(opt)               # regular setup: load and print networks; create schedulers
     model.eval()
 
-    save_subdir = os.path.join(model.save_dir, 'generated_multiple_patches')
+    save_subdir = os.path.join(model.save_dir, 'generated_multiple_patches_pdf')
     os.makedirs(save_subdir, exist_ok=True)
     
     fake_images_all = list()
     real_images_all = list()
+    std_images_all = list()
     for i, data in tqdm(enumerate(dataset)):  # inner loop within one epoch
         input_patches, gen_patches, \
         real_patches, std_patches, \
-        mean_patches, synthseg_patches = run_inference(model, 
-                                                       data, 
-                                                       1000, 256, 24, 
-                                                       sample_times=10, max_image=2)
-        '''sanity check'''
+        mean_patches, synthseg_patches, \
+        point_patches = run_inference(model, 
+                                      data, 
+                                      1000, 256, 24, 
+                                      sample_times=10, max_image=2)
+
+        img_list = list()
+        img_title = list()
+        cmaps = list()
+        # 4 samples
+        for npatch in range(4):
+            img_list += [np.transpose(0.5*(1+gen_patches[0,npatch]), (1,2,0))]
+            img_title += [f'sample{npatch}']
+            cmaps += ['jet']
+        # 4 inputs
+        img_list += [np.transpose(0.5*(1+input_patches[0]), (1,2,0))]
+        img_title += ['input_mask']
+        cmaps += ['jet']
+        for nchannel in range(3):
+            img_list += [input_patches[0, nchannel]]
+            img_title += [f'input_channel{npatch}']
+        cmaps += ['jet', 'jet', 'gist_gray']
+
+        # real image
+        img_list += [np.transpose(0.5*(1+real_patches[0]), (1,2,0))]
+        img_list += [np.random.random(real_patches[0].shape[1:3])] #point_patches[0]]
+         #[np.transpose(0.5*(1+real_patches[1]), (1,2,0))]
+        img_list += [np.transpose(0.5*(1+mean_patches[0]), (1,2,0))]
+        img_list += [np.transpose(0.5*(1+std_patches[0]), (1,2,0))]
+        cmaps += ['jet', 'gist_gray', 'jet', 'jet']
+        img_title += ['real1', 'point', 'mean', 'std']
+
+        if opt.use_synthseg:
+            for npatch in range(4):
+                img_list += [0.5*(1+synthseg_patches[0,0,0])]
+                img_title += [f'synthseg{npatch}']
+                cmaps += ['jet']
+        fig = create_group_fig(img_list=img_list, 
+                               cmaps=cmaps,
+                               titles=img_title,
+                               save_name=os.path.join(save_subdir,'sample_%d.pdf'%(i)),
+                               format='pdf',
+                               dpi=200)
+        
+        '''
         if opt.use_synthseg:
             fig, axes = plt.subplots(3,4,figsize=(10,10))
         else:
@@ -167,17 +220,20 @@ if __name__ == '__main__':
             axes[2, 3].imshow(0.5*(1+synthseg_patches[0,3,0])), axes[2, 3].set_title('synthseg4')
 
 
-        fig.savefig(os.path.join(save_subdir,'sample_%d.jpg'%(i)), dpi=200)
+        fig.savefig(os.path.join(save_subdir,'sample_%d.pdf'%(i)), dpi=200, format='pdf')
         plt.close()
-
+        '''
         assert(std_patches.shape == real_patches.shape)
         fake_images_all.append(gen_patches)
         real_images_all.append(real_patches)
+        std_images_all.append(std_patches)
 
     fake_images_all = np.concatenate(fake_images_all, axis=0)
     real_images_all = np.concatenate(real_images_all, axis=0)
+    std_images_all  = np.concatenate(std_images_all, axis=0)
 
-    print(fake_images_all.shape, real_images_all.shape)
+    print(fake_images_all.shape, real_images_all.shape, std_images_all.shape)
     np.save(os.path.join(save_subdir, 'generated'), fake_images_all)
     np.save(os.path.join(save_subdir, 'real'), real_images_all)
+    np.save(os.path.join(save_subdir, 'std'), std_images_all)
 

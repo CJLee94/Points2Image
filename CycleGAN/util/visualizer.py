@@ -5,7 +5,7 @@ import ntpath
 import time
 from . import util, html
 from subprocess import Popen, PIPE
-
+import matplotlib.pyplot as plt
 
 try:
     import wandb
@@ -255,3 +255,82 @@ class Visualizer():
         print(message)  # print the message
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)  # save the message
+
+
+def create_group_fig(img_list, cmaps, titles=None, annot=None, save_name=None, fig_size=None, num_row=None,
+                     vmin=None, vmax=None, colorbar=False, suptitle=None,
+                     dpi=100, format='eps', zoom=False, gamma_correction=1, verbose=True, fontsize=16, adjust=False):
+    """
+    :param img_list: a list of images to show
+    :param cmaps: specify color maps for each image ('gray' for MRI, i.e.)
+    :param num_row: specify the number of row
+    :param titles: specify each image title
+    :return:
+    """
+    num_figs = len(img_list)
+    if num_row is None:
+        num_row = int(np.sqrt(num_figs))
+    num_col = int(np.ceil(num_figs / num_row))
+
+    if zoom and num_row==1:
+        num_row  *= 2
+
+    if fig_size is None:
+        h, w = img_list[0].shape[:2]
+        fig_size = [w*num_col/50.,h*num_row/50.]
+
+    if titles is None:
+        titles = [str(i) for i in range(len(img_list))]
+    plt.rcParams['figure.figsize'] = fig_size
+    #plt.rcParams['font.family'] = 'serif'
+    #plt.rcParams['font.serif'] = ['Times New Roman'] + plt.rcParams['font.serif']
+    plt.rcParams['font.size'] = fontsize
+
+    fig, axs = plt.subplots(num_row, num_col)
+    #print(axs)
+    if num_row == 1:
+        axs = [axs]
+    if num_col == 1:
+        axs = [[ax] for ax in axs]
+    if verbose:
+        print('Visualizing %d images in %d row %d column' % (num_figs, num_row, num_col))
+        print('Figure size', fig_size)
+
+    for i in range(num_figs):
+        plt.sca(axs[int(i/num_col)][int(i%num_col)])
+        if isinstance(cmaps, str):
+            c = cmaps
+        else:
+            c = cmaps[i]
+        if gamma_correction != 1 and c == 'gist_gray':
+            from skimage import exposure
+            img_list[i] = exposure.adjust_gamma(img_list[i], gamma_correction)
+            vmax = None
+        #plt.subplot(gs[i])#num_row, num_col, i + 1)#
+        tmp = img_list[i]
+        if vmax is not None:
+            if isinstance(vmax, list): v_min, v_max = vmin[i], vmax[i]
+            else: v_min, v_max = vmin, vmax
+        else:
+            v_min, v_max = tmp.min(), tmp.max()
+        if verbose:
+            print(titles[int(i%num_col)], v_min, v_max)
+        im=plt.imshow(tmp, cmap=c, vmin=v_min, vmax=v_max, aspect="equal")
+        if titles[i] is not None:
+            plt.title(titles[i])
+        plt.axis('off')
+        if colorbar:
+            colorbar_wrapper(im)
+    if adjust:
+        plt.subplots_adjust(wspace=0, hspace=0)
+    #plt.tight_layout()
+    if suptitle is not None:
+        fig.suptitle(suptitle, fontsize=fontsize)
+    if save_name:
+        s = time.time()
+        plt.savefig(save_name, format=format, dpi=dpi, bbox_inches="tight")
+        e = time.time()
+        if verbose:
+            print('save figure %s in %.5f seconds'%(save_name, (e-s)))
+
+    return fig
