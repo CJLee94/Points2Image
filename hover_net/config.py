@@ -84,9 +84,14 @@ class Config(object):
                 self.train_dir_list = args.train_dir
             else:
                 self.train_dir_list = [args.train_dir]
-            exp_name = args.train_dir.split('/')[-4]
+            if len(self.train_dir_list) == 1:
+                exp_name = self.train_dir_list[0].train_dir.split('/')[-4]
+            else:
+                exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
             self.log_dir = os.path.join('./logs', exp_name)
 
+        import pdb
+        pdb.set_trace()
         if args.valid_dir is not None:
             print('change the original valid_dir_list {0} to {1}'.format(self.valid_dir_list, args.valid_dir))
             self.valid_dir_list = [args.valid_dir]
