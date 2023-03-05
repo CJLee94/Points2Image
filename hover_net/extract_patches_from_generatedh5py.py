@@ -8,6 +8,7 @@ import glob
 import os
 import tqdm
 import pathlib
+import argparse
 
 import numpy as np
 import h5py
@@ -19,21 +20,35 @@ from dataset import get_dataset
 
 # -------------------------------------------------------------------------------------
 if __name__ == "__main__":
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--train', default=None)
+    parser.add_argument('--valid', default=None)
+    parser.add_argument('--test', default=None)
+    parser.add_argument('--dataset_name', default='monuseg')
+    parser.add_argument('--exp_name', default=None)
+    args = parser.parse_args()
     # Determines whether to extract type map (only applicable to datasets with class labels).
     type_classification = False
 
     # Name of dataset - use Kumar, CPM17 or CoNSeP.
     # This used to get the specific dataset img and ann loading scheme from dataset.py
-    exp_name = 'v4_align_Ga_oasis_synth_Gb_oasis_synth_cyc5'
-    dataset_name = "monuseg_{}".format(exp_name)
-    save_root = "dataset/training_data/%s/" % dataset_name
+    exp_name = args.exp_name
+    dataset_name = args.dataset_name+"_{}".format(exp_name)
+    save_root = "dataset/"
 
     # a dictionary to specify where the dataset path should be
-    dataset_info = {
-        "train": '/home/cj/Archive/CycleGAN_checkpoints/{}/generated_train_images/train_dataset.h5'.format(exp_name),
-        # "valid": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_test_v4_enhanced.h5',
-    }
+    dataset_info = dict()
+    if args.train is not None:
+        dataset_info["train"] = args.train
+    if args.valid is not None:
+        dataset_info["valid"] = args.valid
+    if args.test is not None:
+        dataset_info["test"] = args.test
+    # dataset_info = {
+        # "train": '/home/cj/Archive/CycleGAN_P0_checkpoints/{}/generated_train_images/train_dataset_x10.h5'.format(exp_name),
+        # "valid": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_v4_val_split.h5',
+        # "test": '/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_test_v4_enhanced_pcorrected.h5'
+    # }
 
     patterning = lambda x: re.sub("([\[\]])", "[\\1]", x)
     # parser = get_dataset(dataset_name)
@@ -43,9 +58,12 @@ if __name__ == "__main__":
             step_size = [164, 164]
             extract_type = "valid"  # Choose 'mirror' or 'valid'. 'mirror'- use padding at borders. 'valid'- only extract from valid regions.
             xtractor = PatchExtractor(win_size, step_size)
-        elif split_name == 'valid':
-            win_size = [1000, 1000]
-            step_size = [0, 0]
+        elif split_name == 'valid' or split_name == 'test':
+            if 'tnbc' in args.dataset_name.lower():
+                win_size = [512, 512]
+            if 'monuseg' in args.dataset_name.lower():
+                win_size = [1000, 1000]
+            step_size = [1, 1]
             extract_type = "valid"  # Choose 'mirror' or 'valid'. 'mirror'- use padding at borders. 'valid'- only extract from valid regions.
             xtractor = PatchExtractor(win_size, step_size)
 
@@ -67,7 +85,7 @@ if __name__ == "__main__":
         if split_name == 'train':
             image_stacks = h5f['images']
             ann_stacks = h5f['instance_masks']
-        elif split_name == 'valid':
+        elif split_name == 'valid' or split_name == 'test':
             image_stacks = h5f['images']
             ann_stacks = h5f['instance_masks']
         # import pdb
