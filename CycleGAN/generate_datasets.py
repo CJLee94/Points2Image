@@ -34,7 +34,7 @@ if __name__ == '__main__':
     opt.checkpoints_dir = os.path.split(os.path.split(opt.train_opt_file)[0])[0]
     dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
     with h5py.File(os.path.join(dataset.dataset.dir), 'r') as h5f_r:
-        uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][...,0].astype(np.int64))
+        uncropped_fake_masks = torch.from_numpy(h5f_r['gen_instance_masks'][:].astype(np.int64))
 
     model = create_model(opt)      # create a cyclegan model
     model.isTrain = False
@@ -74,12 +74,12 @@ if __name__ == '__main__':
         # fake_masks[data['A_paths'].item()] = target_mask_numpy
 
         '''sanity check'''
-        fig, axes = plt.subplots(2,2,figsize=(10,10))
-        axes[0, 0].imshow(input_image_numpy)
+        fig, axes = plt.subplots(1,2,figsize=(10,5))
+        axes[0].imshow(input_image_numpy)
         # axes[1].imshow(target_mask_numpy, cmap='gray')
-        axes[0,1].imshow(target_mask_numpy[...,2], cmap='gray')
-        axes[1,0].imshow(target_mask_numpy[...,0], cmap='jet')
-        axes[1,1].imshow(target_mask_numpy[...,1], cmap='jet')
+        axes[1].imshow(cropped_fake_masks[i], cmap='gray')
+        # axes[1,0].imshow(target_mask_numpy[...,0], cmap='jet')
+        # axes[1,1].imshow(target_mask_numpy[...,1], cmap='jet')
         # for fig_i, img_i in enumerate([input_image_numpy, target_mask]):
             # ax
             # plt.imshow(image)
