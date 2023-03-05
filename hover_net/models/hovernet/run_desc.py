@@ -339,10 +339,11 @@ def proc_valid_step_output(raw_data, nr_types=None):
     true_hv = raw_data["true_hv"]
 
     if raw_data["phase_id"] == 1:
-        metrics_name = ['p_iou', 'p_F1', 'dice', 'aji']
-        p_F1_sum = []
-        p_iou_sum = []
-        dice_sum = []
+        metrics_name = ['aji']
+        # metrics_name = ['p_iou', 'p_F1', 'dice', 'aji']
+        # p_F1_sum = []
+        # p_iou_sum = []
+        # dice_sum = []
         aji_sum = []
         for idx in range(len(raw_data["true_np"])):
             patch_prob_np = prob_np[idx]
@@ -354,13 +355,13 @@ def proc_valid_step_output(raw_data, nr_types=None):
             pred_inst, _ = process(pred_inst)
 
             single_results = compute_metrics(pred_inst, patch_true_inst, metrics_name)
-            p_iou_sum.append(single_results['p_iou'])
-            p_F1_sum.append(single_results['p_F1'])
-            dice_sum.append(single_results['dice'])
+            # p_iou_sum.append(single_results['p_iou'])
+            # p_F1_sum.append(single_results['p_F1'])
+            # dice_sum.append(single_results['dice'])
             aji_sum.append(single_results['aji'])
-        track_value("p_iou", np.mean(p_iou_sum), "scalar")
-        track_value("p_F1", np.mean(p_F1_sum), "scalar")
-        track_value("dice", np.mean(dice_sum), "scalar")
+        # track_value("p_iou", np.mean(p_iou_sum), "scalar")
+        # track_value("p_F1", np.mean(p_F1_sum), "scalar")
+        # track_value("dice", np.mean(dice_sum), "scalar")
         track_value("aji", np.mean(aji_sum), "scalar")
     elif raw_data["phase_id"] == 0:
         over_inter = 0
