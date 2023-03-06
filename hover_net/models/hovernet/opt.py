@@ -152,7 +152,7 @@ class Augmenter(nn.Module):
 
 # TODO: training config only ?
 # TODO: switch all to function name String for all option
-def get_config(nr_type, mode, otf_opt=None, epoch=50):
+def get_config(nr_type, mode, otf_opt=None, epoch=50, batch_size=16):
     return {
         # ------------------------------------------------------------------
         # ! All phases have the same number of run engine
@@ -191,7 +191,7 @@ def get_config(nr_type, mode, otf_opt=None, epoch=50):
                     },
                 },
                 "target_info": {"gen": (gen_targets, {}), "viz": (prep_sample, {})},
-                "batch_size": {"train": 16, "valid": 2,},  # engine name : value
+                "batch_size": {"train": batch_size, "valid": 2,},  # engine name : value
                 "nr_epochs": epoch,
             },
             {
@@ -226,7 +226,7 @@ def get_config(nr_type, mode, otf_opt=None, epoch=50):
                     },
                 },
                 "target_info": {"gen": (gen_targets, {}), "viz": (prep_sample, {})},
-                "batch_size": {"train": 4, "valid": 2,}, # batch size per gpu
+                "batch_size": {"train": batch_size//4, "valid": 2,}, # batch size per gpu
                 "nr_epochs": epoch,
             },
         ],

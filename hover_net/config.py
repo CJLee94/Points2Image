@@ -114,7 +114,7 @@ class Config(object):
         module = importlib.import_module(
                 "models.%s.opt" % self.model_name
             )
-        self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch)
+        self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch, batch_size=args.batch_size)
         self.log_dir = self.log_dir + '_{}'.format(args.epoch)
         
         

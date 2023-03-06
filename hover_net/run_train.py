@@ -341,6 +341,7 @@ if __name__ == "__main__":
     parser.add_argument('--otf_dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5')
     parser.add_argument('--valid_shape', default=None, type=int)
     parser.add_argument('--epoch', default=50, type=int)
+    parser.add_argument('--batch_size', default=16, type=int)
     args = parser.parse_args()
     # args = docopt(__doc__, version="HoVer-Net v1.0")
     trainer = TrainManager()
