@@ -164,6 +164,7 @@ class BaseOptions():
                             help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
         parser.add_argument('--dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5', 
                             help='set it to be a path containing file train_opt.txt, so that the experiment can be run with the exact same configuration')
+        parser.add_argument('--no_overwrite', action='store_true', help='if specified, do not overwrite any results if they already exist')
 
         args= parser.parse_args()
             
@@ -173,7 +174,7 @@ class BaseOptions():
         opt = load_opt_from_file(args.train_opt_file)
         if args.dataroot is not None:
             opt.dataroot = args.dataroot
-        
+        opt.no_overwrite = args.no_overwrite
         return opt
 
 
@@ -207,8 +208,6 @@ def load_opt_from_file(file):
     if opt.suffix:
         suffix = ('_' + opt.suffix.format(**vars(opt))) if opt.suffix != '' else ''
         opt.name = opt.name + suffix
-
-    # self.print_options(opt)
 
     # set gpu ids
     str_ids = opt.gpu_ids.split(',')
