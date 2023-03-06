@@ -253,7 +253,10 @@ class InstanceCycleGANModel(BaseModel):
         self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
         # Point loss on G_B(B)
         if lambda_P > 0:
-            self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P) * lambda_P
+            if not self.opt.unalign:
+                self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P) * lambda_P
+            else:
+                self.loss_BA_point = 0.
             self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P) * lambda_P
         else:
             self.loss_BA_point = 0.
