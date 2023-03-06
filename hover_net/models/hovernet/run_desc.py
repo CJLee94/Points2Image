@@ -180,8 +180,12 @@ def valid_step(batch_data, run_info, phase_id=None):
     imgs_gpu = imgs_gpu.permute(0, 3, 1, 2).contiguous()
 
     # HWC
-    true_np = torch.squeeze(true_np).type(torch.int64)
-    true_hv = torch.squeeze(true_hv).type(torch.float32)
+    # import pdb
+    # pdb.set_trace()
+    true_np = true_np.type(torch.int64)
+    true_hv = true_hv.type(torch.float32)
+    # true_np = torch.squeeze(true_np).type(torch.int64)
+    # true_hv = torch.squeeze(true_hv).type(torch.float32)
 
     true_dict = {
         "np": true_np,

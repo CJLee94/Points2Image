@@ -54,14 +54,18 @@ if __name__ == "__main__":
     # parser = get_dataset(dataset_name)
     for split_name, split_desc in dataset_info.items():
         if split_name == 'train':
-            win_size = [540, 540]
-            step_size = [164, 164]
+            if 'tnbc' in args.dataset_name.lower():
+                win_size = [270, 270]
+                step_size = [82, 82]
+            elif 'monuseg' in args.dataset_name.lower():
+                win_size = [540, 540]
+                step_size = [164, 164]
             extract_type = "valid"  # Choose 'mirror' or 'valid'. 'mirror'- use padding at borders. 'valid'- only extract from valid regions.
             xtractor = PatchExtractor(win_size, step_size)
         elif split_name == 'valid' or split_name == 'test':
             if 'tnbc' in args.dataset_name.lower():
                 win_size = [512, 512]
-            if 'monuseg' in args.dataset_name.lower():
+            elif 'monuseg' in args.dataset_name.lower():
                 win_size = [1000, 1000]
             step_size = [1, 1]
             extract_type = "valid"  # Choose 'mirror' or 'valid'. 'mirror'- use padding at borders. 'valid'- only extract from valid regions.
