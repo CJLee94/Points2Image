@@ -29,10 +29,6 @@ class InstanceMaskDataset(BaseDataset):
         the number of channels for output image is 2 (ab). The direction is from A to B
         """
         parser.set_defaults(input_nc=3, output_nc=3, direction='AtoB')
-        parser.add_argument('--num_masks', type=int, default=1, help='number of masks per point annotation')
-        parser.add_argument('--norm_seg', action='store_true', default=False, help='if specified, normalize the binary segmentation from [0,1] to [-1,1]')
-        parser.add_argument('--unalign', action='store_true', default=False, help='if specified, use unaligned pairs')
-
         return parser
 
     def __init__(self, opt):
@@ -83,20 +79,25 @@ class InstanceMaskDataset(BaseDataset):
             mask_index = torch.randint(0, number_of_masks_per_images, ()).numpy()
         A_img = A_img[mask_index: mask_index+1].astype(np.float32)  # 1 x W x H
         A_img = torch.from_numpy(A_img)
-
-        B_img = hd['images'][index]
-        B_img = 2 * B_img.astype(np.float32) / 255. - 1.0
-        B_img = np.transpose(B_img, (2,0,1))
-        B_img = torch.from_numpy(B_img)
         
         P_img = hd['points_masks'][index]
         P_img = P_img.astype(np.float32) / 255.
         P_img = torch.from_numpy(P_img[None, ...])
 
+        if not self.unalign:  # load aligned B_img
+            b_index = index
+        else:
+            # to make sure we are loading unpaired data, resample the index
+            b_index = torch.randint(0, self.__len__(), ()).numpy()            
+        B_img = hd['images'][b_index]
+        B_img = 2 * B_img.astype(np.float32) / 255. - 1.0
+        B_img = np.transpose(B_img, (2,0,1))
+        B_img = torch.from_numpy(B_img)
+
         if self.unalign:
-            A_instance = self.transform_A(A_img)
+            AP = self.transform_A(torch.cat((A_img,P_img)))
+            A_instance, P = AP[:1], AP[-1]
             B = self.transform_B(B_img)
-            P = None
         else:
             # apply the same image transformation (A and B will have the same point annotation)
             AB = self.transform_AB(torch.cat((A_img, B_img, P_img), dim=0))
@@ -112,8 +113,8 @@ class InstanceMaskDataset(BaseDataset):
         A = np.transpose(A, (2,0,1))
         A = torch.from_numpy(A).float()
         return_dict = {'A': A, 'B': B, 'A_paths': index, 'B_paths': index}
-        if P is not None:
-            return_dict.update({'P': P})
+        #if P is not None:
+        return_dict.update({'P': P})
         return return_dict
 
     def __len__(self):

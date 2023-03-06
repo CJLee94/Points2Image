@@ -52,6 +52,10 @@ class BaseOptions():
         parser.add_argument('--preprocess', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop | crop | scale_width | scale_width_and_crop | none]')
         parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
         parser.add_argument('--display_winsize', type=int, default=256, help='display window size for both visdom and HTML')
+        parser.add_argument('--num_masks', type=int, default=1, help='number of masks per point annotation')
+        parser.add_argument('--norm_seg', action='store_true', default=False, help='if specified, normalize the binary segmentation from [0,1] to [-1,1]')
+        parser.add_argument('--unalign', action='store_true', default=False, help='if specified, use unaligned pairs')
+
         # additional parameters
         parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
         parser.add_argument('--load_iter', type=int, default='0', help='which iteration to load? if load_iter > 0, the code will load models by iter_[load_iter]; otherwise, the code will load models by [epoch]')
