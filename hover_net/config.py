@@ -85,7 +85,7 @@ class Config(object):
             else:
                 self.train_dir_list = [args.train_dir]
             if len(self.train_dir_list) == 1:
-                exp_name = self.train_dir_list[0].train_dir.split('/')[-4]
+                exp_name = self.train_dir_list[0].split('/')[-4]
             else:
                 exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
             self.log_dir = os.path.join('./logs', exp_name)
