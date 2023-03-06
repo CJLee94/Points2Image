@@ -335,7 +335,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--view', default=None)
     parser.add_argument('--gpu', default='0,1,2,3')
-    parser.add_argument('--train_dir', default=None)
+    parser.add_argument('--train_dir', default=None, nargs='+')
     parser.add_argument('--valid_dir', default=None)
     parser.add_argument('--otf', default=None)
     parser.add_argument('--otf_dataroot', default='/home/cj/Research/Points2Image_old/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5')

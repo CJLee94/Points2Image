@@ -80,10 +80,18 @@ class Config(object):
     def load_config_from_args(self, args):
         if args.train_dir is not None:
             print('change the original train_dir_list {0} to {1}'.format(self.train_dir_list, args.train_dir))
-            self.train_dir_list = [args.train_dir]
-            exp_name = args.train_dir.split('/')[-4]
+            if isinstance(args.train_dir, list):
+                self.train_dir_list = args.train_dir
+            else:
+                self.train_dir_list = [args.train_dir]
+            if len(self.train_dir_list) == 1:
+                exp_name = self.train_dir_list[0].split('/')[-4]
+            else:
+                exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
             self.log_dir = os.path.join('./logs', exp_name)
 
+        # import pdb
+        # pdb.set_trace()
         if args.valid_dir is not None:
             print('change the original valid_dir_list {0} to {1}'.format(self.valid_dir_list, args.valid_dir))
             self.valid_dir_list = [args.valid_dir]
