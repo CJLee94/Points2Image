@@ -92,6 +92,12 @@ class Config(object):
 
         # import pdb
         # pdb.set_trace()
+        if args.valid_shape is not None:
+            self.shape_info["valid"]["input_shape"] = [args.valid_shape, args.valid_shape]
+            self.shape_info["valid"]["mask_shape"] = [args.valid_shape, args.valid_shape]
+
+        # import pdb
+        # pdb.set_trace()
         if args.valid_dir is not None:
             print('change the original valid_dir_list {0} to {1}'.format(self.valid_dir_list, args.valid_dir))
             self.valid_dir_list = [args.valid_dir]
