@@ -34,7 +34,7 @@ from torch.nn import DataParallel  # TODO: switch to DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from config import Config
-from dataloader.train_loader import FileLoader
+from dataloader.train_loader import FileLoader, H5FileLoader
 from misc.utils import rm_n_mkdir
 from run_utils.engine import RunEngine
 from run_utils.utils import (
@@ -133,7 +133,6 @@ class TrainManager(Config):
     ####
     def _get_datagen(self, batch_size, run_mode, target_gen, nr_procs=0, fold_idx=0):
         nr_procs = nr_procs if not self.debug else 0
-
         # ! Hard assumption on file type
         file_list = []
         if run_mode == "train":
@@ -141,7 +140,12 @@ class TrainManager(Config):
         else:
             data_dir_list = self.valid_dir_list
         for dir_path in data_dir_list:
-            file_list.extend(glob.glob("%s/*.npy" % dir_path))
+            if dir_path[-3:] == '.h5':
+                h5dataset = True
+                file_list.append(dir_path)
+            else:
+                h5dataset = False
+                file_list.extend(glob.glob("%s/*.npy" % dir_path))
         file_list.sort()  # to always ensure same input ordering
 
         assert len(file_list) > 0, (
@@ -150,14 +154,25 @@ class TrainManager(Config):
         )
         print("Dataset %s: %d" % (run_mode, len(file_list)))
 
-        input_dataset = FileLoader(
-            file_list,
-            mode=run_mode,
-            with_type=self.type_classification,
-            setup_augmentor=nr_procs == 0,
-            target_gen=target_gen,
-            **self.shape_info[run_mode]
-        )
+        if h5dataset:
+            print('Using H5File Loader')
+            input_dataset = H5FileLoader(
+                file_list,
+                mode=run_mode,
+                with_type=self.type_classification,
+                setup_augmentor=nr_procs == 0,
+                target_gen=target_gen,
+                **self.shape_info[run_mode]
+            )
+        else:
+            input_dataset = FileLoader(
+                file_list,
+                mode=run_mode,
+                with_type=self.type_classification,
+                setup_augmentor=nr_procs == 0,
+                target_gen=target_gen,
+                **self.shape_info[run_mode]
+            )
 
         dataloader = DataLoader(
             input_dataset,

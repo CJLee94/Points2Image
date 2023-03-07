@@ -12,6 +12,7 @@ import torch.utils.data
 import imgaug as ia
 from imgaug import augmenters as iaa
 from misc.utils import cropping_center
+import h5py
 
 from .augs import (
     add_to_brightness,
@@ -21,6 +22,220 @@ from .augs import (
     gaussian_blur,
     median_blur,
 )
+
+
+class H5FileLoader(torch.utils.data.Dataset):
+    """Data Loader. Loads images from a file list and 
+    performs augmentation with the albumentation library.
+    After augmentation, horizontal and vertical maps are 
+    generated.
+
+    Args:
+        file_list: list of filenames to load
+        input_shape: shape of the input [h,w] - defined in config.py
+        mask_shape: shape of the output [h,w] - defined in config.py
+        mode: 'train' or 'valid'
+        
+    """
+
+    # TODO: doc string
+
+    def __init__(
+        self,
+        h5flist,
+        with_type=False,
+        input_shape=None,
+        mask_shape=None,
+        mode="train",
+        setup_augmentor=True,
+        target_gen=None,
+    ):
+        assert input_shape is not None and mask_shape is not None
+        self.worker_id = None
+        self.worker_seed = None
+        self.mode = mode
+        self.h5flist = h5flist
+        self.with_type = with_type
+        self.mask_shape = mask_shape
+        self.input_shape = input_shape
+        self.id = 0
+        self.target_gen_func = target_gen[0]
+        self.target_gen_kwargs = target_gen[1]
+        if setup_augmentor:
+            self.setup_augmentor(0, 0)
+
+        self.real_len_list = []
+        self.len_list = []
+        for h5f in self.h5flist:
+            hd = h5py.File(h5f, 'r')
+            self.real_len_list.append(len(hd["images"]))
+            if hd["images"].shape[1]==256:
+                self.len_list.append(len(hd["images"]))
+            else:
+                self.len_list.append(16*len(hd["images"]))
+        return
+
+    def setup_augmentor(self, worker_id, seed):
+        # self.worker_id = worker_id
+        # self.worker_seed = seed
+        self.augmentor = self.__get_augmentation(self.mode, seed)
+        self.shape_augs = iaa.Sequential(self.augmentor[0])
+        self.input_augs = iaa.Sequential(self.augmentor[1])
+        self.id = self.id + worker_id
+        return
+
+    def __len__(self):
+        return np.sum(self.len_list)
+
+    def __getitem__(self, idx):
+        if idx>self.len_list[0]:
+            hd = h5py.File(self.h5flist[1], 'r')
+            real_len = self.real_len_list[1]
+        else:
+            hd = h5py.File(self.h5flist[0], 'r')
+            real_len = self.real_len_list[0]
+        # path = self.info_list[idx]
+        # data = np.load(path)
+
+        # split stacked channel into image and label
+        # print(data[...,:3].max())
+        img = (hd["images"][idx%real_len]).astype("uint8")  # RGB images
+        ann = (hd["instance_masks"][idx%real_len])
+        
+        if ann.shape[-1] <=2:
+            ann = ann.astype("int32")  # instance ID map and type map
+
+        if self.shape_augs is not None:
+            shape_augs = self.shape_augs.to_deterministic()
+            img = shape_augs.augment_image(img)
+            ann = shape_augs.augment_image(ann)
+
+        # if idx in [1,2,3,5,6,44,234,9]:
+        #     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        #     axes.imshow(img)
+        #     fig.savefig('before_{}.png'.format(idx))
+        #     plt.close()
+        if self.input_augs is not None:
+            input_augs = self.input_augs.to_deterministic()
+            img = input_augs.augment_image(img)
+
+        # if idx in [1,2,3,5,6,44,234,9]:
+        #     fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+        #     axes.imshow(img)
+        #     fig.savefig('after_{}.png'.format(idx))
+        #     plt.close()
+        # import pdb
+        # pdb.set_trace()
+
+        img = cropping_center(img, self.input_shape)
+        feed_dict = {"img": img}
+        feed_dict["inst_map"] = ann[...,0].copy()
+
+        if len(ann.shape)==3 and ann.shape[-1]==3:
+            inst_map = ann
+        else:
+            inst_map = ann[..., 0]  # HW1 -> HW
+        
+        if self.with_type:
+            type_map = (ann[..., 1]).copy()
+            type_map = cropping_center(type_map, self.mask_shape)
+            #type_map[type_map == 5] = 1  # merge neoplastic and non-neoplastic
+            feed_dict["tp_map"] = type_map
+
+        # TODO: document hard coded assumption about #input
+        target_dict = self.target_gen_func(
+            inst_map, self.mask_shape, **self.target_gen_kwargs
+        )
+        feed_dict.update(target_dict)
+        feed_dict["worker_id"] = torch.utils.data.get_worker_info().id
+        # for k, v in feed_dict.items():
+            # print(k, v.shape)
+        return feed_dict
+
+    def __get_augmentation(self, mode, rng):
+        if mode == "train":
+            shape_augs = [
+                # * order = ``0`` -> ``cv2.INTER_NEAREST``
+                # * order = ``1`` -> ``cv2.INTER_LINEAR``
+                # * order = ``2`` -> ``cv2.INTER_CUBIC``
+                # * order = ``3`` -> ``cv2.INTER_CUBIC``
+                # * order = ``4`` -> ``cv2.INTER_CUBIC``
+                # ! for pannuke v0, no rotation or translation, just flip to avoid mirror padding
+                iaa.Affine(
+                    # scale images to 80-120% of their size, individually per axis
+                    scale={"x": (0.8, 1.2), "y": (0.8, 1.2)},
+                    # translate by -A to +A percent (per axis)
+                    translate_percent={"x": (-0.01, 0.01), "y": (-0.01, 0.01)},
+                    shear=(-5, 5),  # shear by -5 to +5 degrees
+                    rotate=(-179, 179),  # rotate by -179 to +179 degrees
+                    order=0,  # use nearest neighbour
+                    backend="cv2",  # opencv for fast processing
+                    seed=rng,
+                ),
+                # set position to 'center' for center crop
+                # else 'uniform' for random crop
+                iaa.CropToFixedSize(
+                    self.input_shape[0], self.input_shape[1], position="uniform"
+                ),
+                iaa.Fliplr(0.5, seed=rng),
+                iaa.Flipud(0.5, seed=rng),
+            ]
+
+            input_augs = [
+                iaa.OneOf(
+                    [
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: gaussian_blur(*args, max_ksize=3),
+                        ),
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: median_blur(*args, max_ksize=3),
+                        ),
+                        iaa.AdditiveGaussianNoise(
+                            loc=0, scale=(0.0, 0.05 * 255), per_channel=0.5
+                        ),
+                    ]
+                ),
+                iaa.Sequential(
+                    [
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: add_to_hue(*args, range=(-8, 8)),
+                        ),
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: add_to_saturation(
+                                *args, range=(-0.2, 0.2)
+                            ),
+                        ),
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: add_to_brightness(
+                                *args, range=(-26, 26)
+                            ),
+                        ),
+                        iaa.Lambda(
+                            seed=rng,
+                            func_images=lambda *args: add_to_contrast(
+                                *args, range=(0.75, 1.25)
+                            ),
+                        ),
+                    ],
+                    random_order=True,
+                ),
+            ]
+        elif mode == "valid":
+            shape_augs = [
+                # set position to 'center' for center crop
+                # else 'uniform' for random crop
+                iaa.CropToFixedSize(
+                    self.input_shape[0], self.input_shape[1], position="center"
+                )
+            ]
+            input_augs = []
+
+        return shape_augs, input_augs
 
 
 ####
