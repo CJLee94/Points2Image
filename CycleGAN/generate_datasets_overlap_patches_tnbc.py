@@ -15,6 +15,7 @@ import torchvision.transforms as transforms
 from tqdm import tqdm
 from util.visualizer import create_group_fig
 from util.targets import gen_targets
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 
 def center_crop(data_dict, crop_size=1000):
@@ -186,7 +187,7 @@ def run_inference(model, data,
         real_instance_patches = list()
 
         for i in np.arange(0, input_size, overlap):
-            for j in np.arange(0, input_size, patch_size-overlap):
+            for j in np.arange(0, input_size, overlap):
                 if len(real_patches) >= max_image or (i + patch_size > input_size) or (j + patch_size > input_size):
                     continue
                 #print(i,j)
@@ -228,8 +229,9 @@ def run_inference(model, data,
                 real_patches.append(real_patch_numpy[None, ...])
                 instance_patch_numpy = patch_data['A_instance'][0].detach().cpu().numpy()
                 instance_patches.append(instance_patch_numpy[None, ...])
-                real_instance_patch_numpy = patch_data['B_instance'][0].detach().cpu().numpy()
-                real_instance_patches.append(real_instance_patch_numpy[None,...])
+                if 'B_instance' in patch_data.keys():
+                    real_instance_patch_numpy = patch_data['B_instance'][0].detach().cpu().numpy()
+                    real_instance_patches.append(real_instance_patch_numpy[None,...])
 
                 if not return_minimum:   
                     mean_image = np.mean(sample_patches, axis=0, keepdims=True)
@@ -246,7 +248,8 @@ def run_inference(model, data,
         real_patches = np.concatenate(real_patches, axis=0)
         std_patches = np.concatenate(std_patches, axis=0)
         instance_patches = np.concatenate(instance_patches, axis=0)
-        real_instance_patches = np.concatenate(real_instance_patches, axis=0)
+        if 'B_instance' in data.keys():
+            real_instance_patches = np.concatenate(real_instance_patches, axis=0)
 
         if not return_minimum:
             input_patches = np.concatenate(input_patches, axis=0)
@@ -255,16 +258,18 @@ def run_inference(model, data,
             mean_patches = np.concatenate(mean_patches, axis=0)
             #print(mean_patches.shape, instance_patches.shape)
             #(max_image, sample_times, 3, 256, 256) (max_image, 3, 256, 256) (max_image, 3, 256, 256)
-        #print(gen_patches.shape, real_patches.shape, std_patches.shape)
+        print(gen_patches.shape, real_patches.shape, std_patches.shape)
 
         return input_patches, gen_patches, real_patches, \
             std_patches, mean_patches, synthseg_patches, \
                 point_patches, instance_patches, real_instance_patches
 
 """
+name="tnbc_0_cyclegan_unalign_1masks"
+
 ckpt_dir="/home/mengwei/redwood_research/Points2Image/CycleGAN/checkpoints_tnbc100/"
 data_root="/home/mengwei/redwood_research/processed_data/TNBC_x100_train_elongated.h5"
-name="tnbc_0_cyclegan_unalign_1masks"
+name="tnbc_4_cyclegan_align_oasis_obj_point_1masks_1noise"
 
 python generate_datasets_overlap_patches_tnbc.py \
 --train_opt_file ${ckpt_dir}/${name}/train_opt.txt \
@@ -274,6 +279,18 @@ python generate_datasets_overlap_patches_tnbc.py \
 """
 
 if __name__ == '__main__':
+    #parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+    #parser.add_argument('--sample_times', type=int, default=1,
+    #                    help=('sample times'))
+    #parser.add_argument('--num_visualize', type=int, default=10,
+    #                    help=('number of images for visualization and sanity check'))
+    #parser.add_argument('--overlap', type=int, default=8,
+    #                help=('step size for the overlapping patches'))
+    #args = parser.parse_args()
+    sample_times_options = [10, 1]
+    max_visualize = 10
+    print('sample_times', sample_times_options)
+    print('max_visualize', max_visualize)
     opt = TrainOptions().load_opt()   # get training options
     opt.batch_size = 1
     opt.crop_size = 512
@@ -294,123 +311,138 @@ if __name__ == '__main__':
         overlap=8
         get_item_fn = get_item_single_mask
     elif 'train' in opt.dataroot:
-        overlap=24    
+        #overlap=24
+        overlap = 32   
         get_item_fn = get_item
     elif 'random' in opt.dataroot:
-        overlap=24
+        overlap = 128
         get_item_fn = get_item_synth_mask
     else:
         raise NotImplementedError
-    os.makedirs(save_subdir, exist_ok=True)
-    
-    fake_images_all = list()
-    instance_all = list()
-
-    real_images_all = list()
-    real_instance_all = list()
-
-    mask_index = 0
-    visualize = True
     overwrite = not opt.no_overwrite
-    print('Overwrite results? ', overwrite)
-    if os.path.exists(os.path.join(save_subdir, 'generated.npy')) and opt.no_overwrite:
-        print('Result exists. Skip')
-        sys.exit()
-    for i in range(hd['images'].shape[0]):  # inner loop within one epoch
-        data_s = time.time()
-        data = get_item_fn(hd, opt, i, mask_index=mask_index)
-        data_e = time.time()
-        print('data', data_e - data_s)
 
-        model_s = time.time()
-        input_patches, gen_patches, \
-        real_patches, std_patches, \
-        mean_patches, synthseg_patches, \
-        point_patches, \
-        instance_patches, real_instance_patches = run_inference(model, 
-                                                  data,
-                                                  512, 256, overlap=8, 
-                                                  sample_times=10, max_image=25000,
-                                                  return_minimum=not visualize)
-        model_e = time.time()
-        print('model', model_e - model_s)
-        if visualize:
-            img_list = list()
-            img_title = list()
-            cmaps = list()
-            # 4 samples
-            for npatch in range(4):
-                img_list += [np.transpose(0.5*(1+gen_patches[0,npatch]), (1,2,0))]
-                img_title += [f'sample{npatch}']
-                cmaps += ['jet']
-            # 4 inputs
-            img_list += [np.transpose(0.5*(1+instance_patches[0]), (1,2,0))]
-            img_title += ['input_mask']
-            cmaps += ['jet']
-            for nchannel in range(3):
-                img_list += [input_patches[0, nchannel]]
-                img_title += [f'input_channel{npatch}']
-            cmaps += ['jet', 'jet', 'gist_gray']
+    os.makedirs(save_subdir, exist_ok=True)
+    print('overlap', overlap)
 
-            # real image
-            img_list += [np.transpose(0.5*(1+real_patches[0]), (1,2,0))]
-            img_list += [np.random.random(real_patches[0].shape[1:3])] #point_patches[0]]
-            #[np.transpose(0.5*(1+real_patches[1]), (1,2,0))]
-            img_list += [np.transpose(0.5*(1+mean_patches[0]), (1,2,0))]
-            img_list += [np.transpose(0.5*(1+std_patches[0]), (1,2,0))]
-            cmaps += ['jet', 'gist_gray', 'jet', 'jet']
-            img_title += ['real1', 'point', 'mean', 'std']
+    for sample_times in sample_times_options:    
+        fake_images_all = list()
+        instance_all = list()
+        std_images_all = list()
 
-            if opt.use_synthseg:
+        real_images_all = list()
+        real_instance_all = list()
+
+        mask_index = 0
+        num_visualize = 0
+        print('Overwrite results? ', overwrite)
+        if overwrite and os.path.exists(os.path.join(save_subdir, f'generated_step{overlap}_sample{sample_times}.npy')) :
+            os.system(f'rm -r -v *step{overlap}_sample{sample_times}*')
+        if os.path.exists(os.path.join(save_subdir, f'generated_step{overlap}_sample{sample_times}.npy')) and opt.no_overwrite:
+            print('Result exists. Skip')
+            sys.exit()
+        for i in range(hd['images'].shape[0]):  # inner loop within one epoch
+            data_s = time.time()
+            data = get_item_fn(hd, opt, i, mask_index=mask_index)
+            data_e = time.time()
+            print(i, 'data', data_e - data_s)
+
+            model_s = time.time()
+            input_patches, gen_patches, \
+            real_patches, std_patches, \
+            mean_patches, synthseg_patches, \
+            point_patches, \
+            instance_patches, real_instance_patches = run_inference(model, 
+                                                    data,
+                                                    512, 256, 
+                                                    overlap=overlap, 
+                                                    sample_times=sample_times,
+                                                    max_image=25000,
+                                                    return_minimum= False) #num_visualize > max_visualize)
+            model_e = time.time()
+            print(i, 'model', model_e - model_s)
+            if num_visualize < max_visualize:
+                num_visualize += 1
+                img_list = list()
+                img_title = list()
+                cmaps = list()
+                # 4 samples
                 for npatch in range(4):
-                    img_list += [0.5*(1+synthseg_patches[0,0,0])]
-                    img_title += [f'synthseg{npatch}']
+                    img_list += [np.transpose(0.5*(1+gen_patches[0, min(npatch, sample_times-1)]), (1,2,0))]
+                    img_title += [f'sample{min(npatch, sample_times)}']
                     cmaps += ['jet']
-            fig = create_group_fig(img_list=img_list, 
-                                cmaps=cmaps,
-                                titles=img_title,
-                                save_name=os.path.join(save_subdir,'sample_%d.pdf'%(i)),
-                                format='pdf',
-                                dpi=200)
+                # 4 inputs
+                img_list += [np.transpose(0.5*(1+instance_patches[0]), (1,2,0))]
+                img_title += ['input_mask']
+                cmaps += ['jet']
+                for nchannel in range(3):
+                    img_list += [input_patches[0, nchannel]]
+                    img_title += [f'input_channel{npatch}']
+                cmaps += ['jet', 'jet', 'gist_gray']
+
+                # real image
+                img_list += [np.transpose(0.5*(1+real_patches[0]), (1,2,0))]
+                img_list += [np.random.random(real_patches[0].shape[1:3])] #point_patches[0]]
+                #[np.transpose(0.5*(1+real_patches[1]), (1,2,0))]
+                img_list += [np.transpose(0.5*(1+mean_patches[0]), (1,2,0))]
+                img_list += [np.transpose(0.5*(1+std_patches[0]), (1,2,0))]
+                cmaps += ['jet', 'gist_gray', 'jet', 'jet']
+                img_title += ['real1', 'point', 'mean', 'std']
+
+                if opt.use_synthseg:
+                    for npatch in range(4):
+                        img_list += [0.5*(1+synthseg_patches[0,0,0])]
+                        img_title += [f'synthseg{npatch}']
+                        cmaps += ['jet']
+                fig = create_group_fig(img_list=img_list, 
+                                    cmaps=cmaps,
+                                    titles=img_title,
+                                    save_name=os.path.join(save_subdir,'step%d_sample%d_%d.pdf'%(overlap,sample_times,i)),
+                                    format='pdf',
+                                    dpi=200)
+            
+            assert(std_patches.shape == real_patches.shape)
+            fake_images_all.append(gen_patches)
+            real_images_all.append(real_patches)
+            instance_all.append(instance_patches)
+            real_instance_all.append(real_instance_patches)
+            std_images_all.append(std_patches)
+
+        fake_images_all = np.concatenate(fake_images_all, axis=0)
+        real_images_all = np.concatenate(real_images_all, axis=0)
+        instance_all = np.concatenate(instance_all, axis=0)
+        real_instance_all = np.concatenate(real_instance_all, axis=0)[:, None, ...]
+        std_images_all  = np.concatenate(std_images_all, axis=0)
+
+        npatches, nsamples, c, w, h = fake_images_all.shape
+        generated_images = np.reshape(fake_images_all, (npatches*nsamples, c, w, h))
+        npatches, ci, w, h = instance_all.shape
+        instance_all = instance_all[:, None, ...]
+        instance_all = np.repeat(instance_all, nsamples, axis=1)
+        instance_all = np.reshape(instance_all, (npatches*nsamples, ci, w, h))
         
-        assert(std_patches.shape == real_patches.shape)
-        fake_images_all.append(gen_patches)
-        real_images_all.append(real_patches)
-        instance_all.append(instance_patches)
-        real_instance_all.append(real_instance_patches)
+        #print(generated_images.shape, instance_all.shape)
+        ## Save for FID/KID 
+        np.save(os.path.join(save_subdir, f'generated_step{overlap}_sample{sample_times}'), fake_images_all)
+        np.save(os.path.join(save_subdir, f'generated_merge_step{overlap}_sample{sample_times}'), np.reshape(fake_images_all, (npatches*nsamples, c, w, h)))
+        np.save(os.path.join(save_subdir, f'generated_single'), fake_images_all[:,0,...])
+        np.save(os.path.join(save_subdir, 'real'), real_images_all)
+        np.save(os.path.join(save_subdir, 'std'), std_images_all)
 
-    fake_images_all = np.concatenate(fake_images_all, axis=0)
-    real_images_all = np.concatenate(real_images_all, axis=0)
-    instance_all = np.concatenate(instance_all, axis=0)
-    real_instance_all = np.concatenate(real_instance_all, axis=0)[:, None, ...]
+        ## Save for training segmentation
+        generated_images = np.transpose(generated_images, (0,2,3,1))
+        generated_images = np.clip((generated_images+1)*255/2.0, 0, 255).astype(np.uint8)
+        instance_all = np.transpose(instance_all, (0,2,3,1)).astype(np.uint16)
+        print(generated_images.shape, instance_all.shape)
+        with h5py.File(os.path.join(save_subdir, f'train_dataset_step{overlap}_sample{sample_times}.h5'), 'w') as h5f:
+            h5f.create_dataset('images', data=generated_images)
+            h5f.create_dataset('instance_masks', data=instance_all)
+        print('saved', os.path.join(save_subdir, f'train_dataset_step{overlap}_sample{sample_times}.h5'))
+        # sys.exit()
 
-    npatches, nsamples, c, w, h = fake_images_all.shape
-    generated_images = np.reshape(fake_images_all, (npatches*nsamples, c, w, h))
-    npatches, ci, w, h = instance_all.shape
-    instance_all = instance_all[:, None, ...]
-    instance_all = np.repeat(instance_all, nsamples, axis=1)
-    instance_all = np.reshape(instance_all, (npatches*nsamples, ci, w, h))
-    
-    #print(generated_images.shape, instance_all.shape)
-    ## Save for FID/KID 
-    np.save(os.path.join(save_subdir, 'generated'), fake_images_all)
-    np.save(os.path.join(save_subdir, 'generated_merge'), np.reshape(fake_images_all, (npatches*nsamples, c, w, h)))
-    np.save(os.path.join(save_subdir, 'generated_single'), fake_images_all[:,0,...])
-    np.save(os.path.join(save_subdir, 'real'), real_images_all)
-    
-    ## Save for training segmentation
-    generated_images = np.transpose(generated_images, (0,2,3,1))
-    generated_images = np.clip((generated_images+1)*255/2.0, 0, 255).astype(np.uint8)
-    instance_all = np.transpose(instance_all, (0,2,3,1)).astype(np.uint16)
-    print(generated_images.shape, instance_all.shape)
-    with h5py.File(os.path.join(save_subdir, 'train_dataset.h5'), 'w') as h5f:
-        h5f.create_dataset('images', data=generated_images)
-        h5f.create_dataset('instance_masks', data=instance_all)
-
-    real_images_all = np.transpose(real_images_all, (0,2,3,1))
-    real_images_all = np.clip((real_images_all+1)*255/2.0, 0, 255).astype(np.uint8)
-    real_instance_all = np.transpose(real_instance_all, (0,2,3,1)).astype(np.uint16)
-    print(real_images_all.shape, real_instance_all.shape)
-    with h5py.File(os.path.join(save_subdir, 'real_train_dataset.h5'), 'w') as h5f:
-        h5f.create_dataset('images', data=real_images_all)
-        h5f.create_dataset('instance_masks', data=real_instance_all)
+        real_images_all = np.transpose(real_images_all, (0,2,3,1))
+        real_images_all = np.clip((real_images_all+1)*255/2.0, 0, 255).astype(np.uint8)
+        real_instance_all = np.transpose(real_instance_all, (0,2,3,1)).astype(np.uint16)
+        print(real_images_all.shape, real_instance_all.shape)
+        with h5py.File(os.path.join(save_subdir, 'real_train_dataset.h5'), 'w') as h5f:
+            h5f.create_dataset('images', data=real_images_all)
+            h5f.create_dataset('instance_masks', data=real_instance_all)
