@@ -85,9 +85,16 @@ class Config(object):
             else:
                 self.train_dir_list = [args.train_dir]
             if len(self.train_dir_list) == 1:
-                exp_name = self.train_dir_list[0].split('/')[-4]
+                if self.train_dir_list[0][-3:] == '.h5':
+                    exp_name = os.path.basename(self.train_dir_list[0])[:-3]
+                else:
+                    exp_name = self.train_dir_list[0].split('/')[-4]
             else:
-                exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
+                if self.train_dir_list[0][-3:] == '.h5':
+                    exp_name = '_'.join([os.path.basename(train_dir_name)[:-3] for train_dir_name in self.train_dir_list])
+                    # exp_name = 
+                else:
+                    exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
             self.log_dir = os.path.join('./logs', exp_name)
 
         # import pdb
