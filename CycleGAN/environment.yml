@@ -1,4 +1,4 @@
-name: pytorch-CycleGAN-and-pix2pix
+name: point2image
 channels:
   - pytorch
   - defaults
