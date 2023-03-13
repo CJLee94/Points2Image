@@ -314,7 +314,7 @@ def create_group_fig(img_list, cmaps, titles=None, annot=None, save_name=None, f
         else:
             v_min, v_max = tmp.min(), tmp.max()
         if verbose:
-            print(titles[int(i%num_col)], v_min, v_max)
+            print(titles[int(i)], v_min, v_max, tmp.shape)
         im=plt.imshow(tmp, cmap=c, vmin=v_min, vmax=v_max, aspect="equal")
         if titles[i] is not None:
             plt.title(titles[i])
@@ -323,7 +323,7 @@ def create_group_fig(img_list, cmaps, titles=None, annot=None, save_name=None, f
             colorbar_wrapper(im)
     if adjust:
         plt.subplots_adjust(wspace=0, hspace=0)
-    #plt.tight_layout()
+    plt.tight_layout()
     if suptitle is not None:
         fig.suptitle(suptitle, fontsize=fontsize)
     if save_name:
