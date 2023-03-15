@@ -1,0 +1,74 @@
+----------------- Options ---------------
+               batch_size: 8                             	[default: 1]
+                    beta1: 0.5                           
+          checkpoints_dir: /scratch/mr5295/projects/Points2Image/CycleGAN/checkpoints_0227/	[default: ./checkpoints]
+           continue_train: True                          	[default: False]
+                crop_size: 256                           
+                 dataroot: /scratch/mr5295/data/point2image/processed_data/MoNuSeg_train_v4_enhanced_pcorrected.h5	[default: None]
+             dataset_mode: align_instancemask            	[default: unaligned]
+                direction: AtoB                          
+              display_env: main                          
+             display_freq: 400                           
+               display_id: 1                             
+            display_ncols: 4                             
+             display_port: 8097                          
+           display_server: http://localhost              
+          display_winsize: 256                           
+                    epoch: latest                        
+              epoch_count: 2500                          	[default: 1]
+                 gan_mode: lsgan                         
+                  gpu_ids: 0                             
+                init_gain: 0.02                          
+                init_type: normal                        
+                 input_nc: 3                             
+                  isTrain: True                          	[default: None]
+                 lambda_A: 5.0                           	[default: 10.0]
+                 lambda_B: 5.0                           	[default: 10.0]
+                lambda_hv: 1.0                           
+          lambda_identity: 0.0                           	[default: 0.5]
+             lambda_point: 1.0
+               lambda_seg: 1.0                           
+                load_iter: 0                             	[default: 0]
+                load_size: 286                           
+                       lr: 0.0002                        
+           lr_decay_iters: 50                            
+                lr_policy: linear                        
+         max_dataset_size: inf                           
+                    model: instancecyclegan              	[default: cycle_gan]
+                 n_epochs: 3000                          	[default: 100]
+           n_epochs_decay: 1000                          	[default: 100]
+               n_layers_D: 3                             
+                     name: v4_align_Ga_oasis_noise1_Gb_hover_cyc5	[default: experiment_name]
+                      ndf: 64                            
+                   netD_A: basic_sn                      	[default: n_layers]
+                   netD_B: basic_sn                      	[default: dual_basic_sn]
+                   netG_A: oasis_256                     	[default: resnet_9blocks]
+                   netG_B: hovernet                      	[default: resnet_9blocks]
+                      ngf: 32                            	[default: 64]
+               no_3dnoise: False                         
+               no_dropout: True                          
+                  no_flip: False                         
+                  no_html: False                         
+         no_spectral_norm: False                         
+                     norm: instance                      
+           num_res_blocks: 6                             
+              num_threads: 4                             
+                output_nc: 3                             
+          param_free_norm: instance                      
+                    phase: train                         
+                pool_size: 50                            
+               preprocess: crop                          	[default: resize_and_crop]
+               print_freq: 100                           
+             save_by_iter: False                         
+          save_epoch_freq: 500                           	[default: 100]
+         save_latest_freq: 100                           	[default: 5000]
+           serial_batches: False                         
+                 spade_ks: 3                             
+                   suffix:                               
+         update_html_freq: 1000                          
+             use_synthseg: False                         
+                use_wandb: False                         
+                  verbose: False                         
+       wandb_project_name: CycleGAN-and-pix2pix          
+                    z_dim: 1                             	[default: 64]
+----------------- End -------------------
