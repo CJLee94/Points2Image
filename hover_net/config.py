@@ -95,6 +95,8 @@ class Config(object):
                     # exp_name = 
                 else:
                     exp_name = '_'.join([train_dir_name.split('/')[-4] for train_dir_name in self.train_dir_list])
+            if args.exp_name is not None:
+                exp_name = args.exp_name
             self.log_dir = os.path.join('./logs', exp_name)
 
         # import pdb
@@ -122,7 +124,6 @@ class Config(object):
                 "models.%s.opt" % self.model_name
             )
         self.model_config = module.get_config(self.nr_type, self.model_mode, otf_opt=self.otf_opt, epoch=args.epoch, batch_size=args.batch_size)
-        self.log_dir = self.log_dir + '_{}'.format(args.epoch)
         
         
         if not os.path.exists(self.log_dir):
