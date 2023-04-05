@@ -84,6 +84,91 @@ class LoggingGradient(BaseCallbacks):
 
 
 ####
+class LoggingCkptOutput(BaseCallbacks):
+    """Must declare save dir first in the shared global state of the attached engine."""
+
+    def __init__(self, per_n_step=23):
+        super().__init__()
+        self.per_n_step = per_n_step
+
+    def run(self, state, event):
+
+        # only logging every n epochs also
+        if state.curr_global_step % self.per_n_step != 0:
+            return
+
+        # TODO: rename to differentiate global vs local epoch
+        if state.global_state is not None:
+            current_global_step = str(state.global_state.curr_global_step)
+        else:
+            current_global_step = str(state.curr_global_step)
+
+        output = state.tracked_step_output
+
+        def get_serializable_values(output_format):
+            log_dict = {}
+            # get type and variable that is serializable
+            # to console or other logging format (json, tensorboard)
+            for variable_type, variable_dict in output.items():
+                for value_name, value in variable_dict.items():
+                    value_name = "%s-%s" % (state.attached_engine_name, value_name)
+                    new_format = serialize(value, variable_type, output_format)
+                    if new_format is not None:
+                        log_dict[value_name] = new_format
+            return log_dict
+
+        # * Serialize to Console
+        # align the console print output
+        formatted_values = get_serializable_values("console")
+        max_length = len(max(formatted_values.keys(), key=len))
+        for value_name, value_text in formatted_values.items():
+            value_name = colored(value_name.ljust(max_length), "green")
+            print("------%s : %s" % (value_name, value_text))
+        
+        if state.attached_engine_name == "valid":
+            if state.curr_phase == 0:
+                state.curr_val = output["scalar"]["np_dice"]
+            elif state.curr_phase == 1:
+                state.curr_val = output["scalar"]["aji"]
+        
+        if state.curr_val > state.best_val:
+            print("Logging the best val from {} to {}".format(state.best_val, state.curr_val))
+            state.best_val = state.curr_val
+        # TODO: [CRITICAL] fix passing this between engine
+        # if not state.logging: return
+
+        # * Serialize to JSON file
+        stat_dict = get_serializable_values("json")
+        # json stat log file, update and overwrite
+        with open(state.log_info["json_file"]) as json_file:
+            json_data = json.load(json_file)
+
+        if current_global_step in json_data:
+            old_stat_dict = json_data[current_global_step]
+            stat_dict.update(old_stat_dict)
+        current_epoch_dict = {current_global_step: stat_dict}
+        json_data.update(current_epoch_dict)
+
+        # TODO: may corrupt
+        with open(state.log_info["json_file"], "w") as json_file:
+            json.dump(json_data, json_file)
+
+        # * Serialize to Tensorboard
+        tfwriter = state.log_info["tfwriter"]
+        formatted_values = get_serializable_values("tensorboard")
+        # ! may need to flush to force update
+        for value_name, value in formatted_values.items():
+            # TODO: dynamically call this
+            if value[0] == "scalar":
+                tfwriter.add_scalar(value_name, value[1], current_global_step)
+            elif value[0] == "image":
+                tfwriter.add_image(
+                    value_name, value[1], current_global_step, dataformats="HWC"
+                )
+        # tfwriter.flush()
+
+        return
+    
 class LoggingEpochOutput(BaseCallbacks):
     """Must declare save dir first in the shared global state of the attached engine."""
 

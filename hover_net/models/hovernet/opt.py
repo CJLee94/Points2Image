@@ -21,7 +21,7 @@ from run_utils.callbacks.base import (
     VisualizeOutput,
     TriggerEngine,
 )
-from run_utils.callbacks.logging import LoggingEpochOutput, LoggingGradient
+from run_utils.callbacks.logging import LoggingGradient, LoggingCkptOutput, LoggingEpochOutput
 from run_utils.engine import Events
 
 from .targets import gen_targets, prep_sample
@@ -152,7 +152,7 @@ class Augmenter(nn.Module):
 
 # TODO: training config only ?
 # TODO: switch all to function name String for all option
-def get_config(nr_type, mode, otf_opt=None, epoch=50, batch_size=16):
+def get_config(nr_type, mode, otf_opt=None, epoch=50, batch_size=16, ckpt_freq=40):
     return {
         # ------------------------------------------------------------------
         # ! All phases have the same number of run engine
@@ -246,10 +246,15 @@ def get_config(nr_type, mode, otf_opt=None, epoch=50, batch_size=16):
                     Events.STEP_COMPLETED: [
                         # LoggingGradient(), # TODO: very slow, may be due to back forth of tensor/numpy ?
                         ScalarMovingAverage(),
+                        TrackLr(per_n_step=ckpt_freq),
+                        # PeriodicSaver(per_n_step=ckpt_freq),
+                        # VisualizeOutput(viz_step_output, per_n_step=ckpt_freq),
+                        # LoggingCkptOutput(per_n_step=ckpt_freq),
+                        TriggerEngine("valid", per_n_step=ckpt_freq)
                     ],
                     Events.EPOCH_COMPLETED: [
-                        TrackLr(),
-                        PeriodicSaver(),
+                        # TrackLr(),
+                        # PeriodicSaver(),
                         VisualizeOutput(viz_step_output),
                         LoggingEpochOutput(),
                         TriggerEngine("valid"),
@@ -270,7 +275,8 @@ def get_config(nr_type, mode, otf_opt=None, epoch=50, batch_size=16):
                         ProcessAccumulatedRawOutput(
                             lambda a: proc_valid_step_output(a, nr_types=nr_type)
                         ),
-                        LoggingEpochOutput(),
+                        LoggingCkptOutput(per_n_step=1),
+                        PeriodicSaver(per_n_step=1),
                     ],
                 },
             },

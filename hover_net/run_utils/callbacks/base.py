@@ -28,13 +28,16 @@ class TrackLr(BaseCallbacks):
     Add learning rate to tracking
     """
 
-    def __init__(self, per_n_epoch=1, per_n_step=None):
+    def __init__(self, per_n_epoch=1, per_n_step=23):
         super().__init__()
         self.per_n_epoch = per_n_epoch
         self.per_n_step = per_n_step
 
     def run(self, state, event):
         # logging learning rate, decouple into another callback?
+        if state.curr_global_step % self.per_n_step != 0:
+            return
+        
         run_info = state.run_info
         for net_name, net_info in run_info.items():
             lr = net_info["optimizer"].param_groups[0]["lr"]
@@ -59,13 +62,16 @@ class ScheduleLr(BaseCallbacks):
 
 ####
 class TriggerEngine(BaseCallbacks):
-    def __init__(self, triggered_engine_name, nr_epoch=1):
+    def __init__(self, triggered_engine_name, nr_epoch=1, per_n_step=23):
         self.engine_trigger = True
         self.triggered_engine_name = triggered_engine_name
         self.triggered_engine = None
         self.nr_epoch = nr_epoch
+        self.per_n_step = per_n_step
 
     def run(self, state, event):
+        if state.curr_global_step % self.per_n_step != 0:
+            return
         self.triggered_engine.run(
             chained=True, nr_epoch=self.nr_epoch, shared_state=state
         )
@@ -76,27 +82,42 @@ class TriggerEngine(BaseCallbacks):
 class PeriodicSaver(BaseCallbacks):
     """Must declare save dir first in the shared global state of the attached engine."""
 
-    def __init__(self, per_n_epoch=1, per_n_step=None):
+    def __init__(self, per_n_epoch=1, per_n_step=23):
         super().__init__()
         self.per_n_epoch = per_n_epoch
         self.per_n_step = per_n_step
 
     def run(self, state, event):
-        if not state.logging:
-            return
+        # import pdb
+        # pdb.set_trace()
+        # if not state.logging:
+            # return
 
         # TODO: add switch so that only one of [per_n_epoch / per_n_step] can run
-        if state.curr_epoch % self.per_n_epoch != 0:
+        # if state.curr_epoch % self.per_n_epoch != 0:
+        if state.global_state.curr_global_step % self.per_n_step != 0:
             return
+        
 
         for net_name, net_info in state.run_info.items():
             net_checkpoint = {}
+            net_checkpoint["val_metrics"] = state.curr_val
             for key, value in net_info.items():
                 if key != "extra_info":
                     net_checkpoint[key] = value.state_dict()
             torch.save(
                 net_checkpoint,
-                "%s/%s_epoch=%d.tar" % (state.log_dir, net_name, state.curr_epoch),
+                "%s/%s_step=%d.tar" % (state.global_state.log_dir, net_name, state.global_state.curr_global_step),
+            )
+            torch.save(
+                net_checkpoint,
+                "%s/latest.tar" % (state.global_state.log_dir),
+            )
+        if state.curr_val == state.best_val:
+            print("Saving best step {} with val metric {}".format(state.global_state.curr_global_step, state.curr_val))
+            torch.save(
+                net_checkpoint,
+                "%s/best.tar" % (state.global_state.log_dir),
             )
         return
 
@@ -220,14 +241,17 @@ class ProcessAccumulatedRawOutput(BaseCallbacks):
 
 ####
 class VisualizeOutput(BaseCallbacks):
-    def __init__(self, proc_func, per_n_epoch=1):
+    def __init__(self, proc_func, per_n_epoch=1, per_n_step=23):
         super().__init__()
         # TODO: option to dump viz per epoch or per n step
         self.per_n_epoch = per_n_epoch
         self.proc_func = proc_func
+        self.per_n_step = per_n_step
 
     def run(self, state, event):
-        current_epoch = state.curr_epoch
+        if state.curr_global_step % self.per_n_step != 0:
+            return
+        # current_epoch = state.curr_epoch
         raw_output = state.step_output["raw"]
         viz_image = self.proc_func(raw_output)
         state.tracked_step_output["image"]["output"] = viz_image

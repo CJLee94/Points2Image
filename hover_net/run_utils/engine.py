@@ -27,6 +27,9 @@ class State(object):
         self.curr_epoch_step = 0  # current step in epoch
         self.curr_global_step = 0  # current global step
         self.curr_epoch = 0  # current global epoch
+        self.curr_phase = 0
+        self.best_val = 0
+        self.curr_val = 0
 
         # TODO: [LOW] better document this
         # for outputing value that will be tracked per step
@@ -97,6 +100,7 @@ class RunEngine(object):
         self.state.run_info = run_info
         self.state.log_info = log_info
         self.state.batch_size = dataloader.batch_size
+        self.state.curr_phase = phase_id
 
         # TODO: [CRITICAL] match all the mechanism outline with opt
         self.state.pertain_n_epoch_output = 1 if engine_name == "valid" else 1
