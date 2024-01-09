@@ -71,9 +71,8 @@ Brief overview of the results obtained with this approach, possibly including im
 If you find our work useful in your research, please consider citing:
 
 ```
-BibTeX entry of the paper
-```
 Li, Shijie, et al. "Microscopy Image Segmentation via Point and Shape Regularized Data Synthesis." arXiv preprint arXiv:2308.09835 (2023).
+```
 
 ## Contact
 
