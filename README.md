@@ -43,7 +43,7 @@ python train.py --dataroot ~/redwood_research/processed_data/MoNuSeg_train_v4_en
 --netG oasis_256 \
 --pool_size 50 --no_dropout --phase train --preprocess crop \
 --crop_size 256 --batch_size 1 --lambda_identity 0 --n_epochs 500 \
---n_epochs_decay 300 --input_nc 3 
+--n_epochs_decay 300 --input_nc 3 --setup_augmentor
 
 # To generate synthetic image-mask pairs
 python generate_datasets.py --train_opt_file /home/cj/Research/Points2Image/CycleGAN/checkpoints/basic_netD_oasis_netGa_unet256_netGb_cyclegan
