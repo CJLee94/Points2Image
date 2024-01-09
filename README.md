@@ -60,11 +60,11 @@ python hovernet_infer.py --options
 
 ## Dataset
 
-Information about the dataset used, how to access it, and how to prepare it for training.
+TODO: Information about the dataset used, how to access it, and how to prepare it for training.
 
 ## Results
 
-Brief overview of the results obtained with this approach, possibly including images or charts.
+TODO: Brief overview of the results obtained with this approach, possibly including images or charts.
 
 ## Citation
 
