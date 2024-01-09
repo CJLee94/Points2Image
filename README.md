@@ -23,8 +23,8 @@ Instructions for setting up the environment and installing necessary dependencie
 
 ```bash
 # Clone the repository
-git clone [repo-link]
-cd [repo-name]
+git clone https://github.com/CJLee94/Points2Image.git
+cd Points2Image
 
 # Install dependencies
 pip install -r requirements.txt
