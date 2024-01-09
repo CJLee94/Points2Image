@@ -1,7 +1,3 @@
-Certainly! Here's a README template for your GitHub repository, which details the Python implementation of your paper presented at the MICCAI DALI 2023 workshop:
-
----
-
 # Microscopy Image Segmentation via Point and Shape Regularized Data Synthesis
 
 This repository contains the official Python implementation of the paper "Microscopy Image Segmentation via Point and Shape Regularized Data Synthesis," accepted at the MICCAI DALI 2023 workshop.
@@ -84,8 +80,4 @@ Li, Shijie, et al. "Microscopy Image Segmentation via Point and Shape Regularize
 For any queries regarding the code or the paper, feel free to reach out:
 
 - Email: shijie.li@nyu.edu
-- Institution: 
-
----
-
-Remember to replace placeholders like `[repo-link]`, `[repo-name]`, `[your-email]`, and `[your-institution]` with the appropriate information. Also, ensure to include the correct BibTeX entry for your paper under the Citation section.
+- Institution: New York University, Tandon School of Engineering
