@@ -55,6 +55,7 @@ class BaseOptions():
         parser.add_argument('--num_masks', type=int, default=1, help='number of masks per point annotation')
         parser.add_argument('--norm_seg', action='store_true', default=False, help='if specified, normalize the binary segmentation from [0,1] to [-1,1]')
         parser.add_argument('--unalign', action='store_true', default=False, help='if specified, use unaligned pairs')
+        parser.add_argument('--setup_augmentor', action='store_true', default=False, help='if specified, use augmentor on B_img')
 
         # additional parameters
         parser.add_argument('--epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
