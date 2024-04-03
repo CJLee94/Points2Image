@@ -41,12 +41,15 @@ class InstanceCycleGANModel(BaseModel):
         """
         parser.set_defaults(no_dropout=True)  # default CycleGAN did not use dropout
         if is_train:
+            parser.add_argument('--lambda_G_A', type=float, default=1.0, help='weight for cycle loss (A -> B)')
+            parser.add_argument('--lambda_G_B', type=float, default=1.0, help='weight for GAN loss (B -> A)')
             parser.add_argument('--lambda_A', type=float, default=10.0, help='weight for cycle loss (A -> B -> A)')
             parser.add_argument('--lambda_B', type=float, default=10.0, help='weight for cycle loss (B -> A -> B)')
             parser.add_argument('--lambda_identity', type=float, default=0.5, help='use identity mapping. Setting lambda_identity other than 0 has an effect of scaling the weight of the identity mapping loss. For example, if the weight of the identity loss should be 10 times smaller than the weight of the reconstruction loss, please set lambda_identity = 0.1')
             parser.add_argument('--lambda_seg', type=float, default=1.0, help='weight for segmentation loss in the cycle consistency term')
             parser.add_argument('--lambda_hv', type=float, default=1.0, help='weight for hv map loss in the cycle consistency loss')
-            parser.add_argument('--lambda_point', type=float, default=1.0, help='weight for the point loss applied')
+            parser.add_argument('--lambda_BA_point', type=float, default=1.0, help='weight for the point loss applied (B -> A)')
+            parser.add_argument('--lambda_ABA_point', type=float, default=1.0, help='weight for the point loss applied (A -> B -> A)')
         return parser
 
     def __init__(self, opt):
@@ -153,7 +156,10 @@ class InstanceCycleGANModel(BaseModel):
         seg_map_pred = rec_A[:, 2:3, ...]
         seg_map_pred = torch.cat([1-seg_map_pred, seg_map_pred], dim=1).permute(0, 2, 3, 1).contiguous()
         seg_map_target = real_A[:, 2:3, ...].squeeze(1)
+        # import pdb
+        # pdb.set_trace()
         #print(seg_map_target.min(), seg_map_target.max())
+        # seg_map_target[seg_map_target==-1] = 0
         seg_map_target_onehot = (F.one_hot(seg_map_target.type(torch.int64), num_classes=2)).type(torch.float32)
         #seg_map_target_onehot = seg_map_target_onehot.to(self.device)
         # import pdb
@@ -234,7 +240,10 @@ class InstanceCycleGANModel(BaseModel):
         lambda_idt = self.opt.lambda_identity
         lambda_A = self.opt.lambda_A
         lambda_B = self.opt.lambda_B
-        lambda_P = self.opt.lambda_point
+        lambda_BA_P = self.opt.lambda_BA_point
+        lambda_ABA_P = self.opt.lambda_ABA_point
+        lambda_G_A = self.opt.lambda_G_A
+        lambda_G_B = self.opt.lambda_G_B
         # Identity loss
         if lambda_idt > 0:
             # G_A should be identity if real_B is fed: ||G_A(B) - B||
@@ -248,18 +257,29 @@ class InstanceCycleGANModel(BaseModel):
             self.loss_idt_B = 0
 
         # GAN loss D_A(G_A(A))
-        self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True)
+
+        if lambda_G_A > 0:
+            self.loss_G_A = self.criterionGAN(self.netD_A(self.fake_B), True) * lambda_G_A
+        else:
+            self.loss_G_A = 0.
+
         # GAN loss D_B(G_B(B))
-        self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True)
+        if lambda_G_B > 0:
+            self.loss_G_B = self.criterionGAN(self.netD_B(self.fake_A), True) * lambda_G_B
+        else:
+            self.loss_G_B = 0.
         # Point loss on G_B(B)
-        if lambda_P > 0:
+        if lambda_BA_P > 0:
             if not self.opt.unalign:
-                self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P) * lambda_P
+                self.loss_BA_point = self.get_point_loss(self.fake_A, self.real_P) * lambda_BA_P
             else:
                 self.loss_BA_point = 0.
-            self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P) * lambda_P
         else:
             self.loss_BA_point = 0.
+
+        if lambda_ABA_P > 0:
+            self.loss_ABA_point = self.get_point_loss(self.rec_A, self.real_P) * lambda_ABA_P
+        else:
             self.loss_ABA_point = 0.
         # Forward cycle loss || G_B(G_A(A)) - A||
         # NOTE: loss_cycle_A_hv and loss_cycle_A_seg are only for training monitoring. 
