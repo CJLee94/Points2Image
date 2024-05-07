@@ -1,21 +1,23 @@
-MIT License
+Copyright 2024 New York University. All Rights Reserved.
 
-Copyright (c) 2022 CJLee94
+ 
+A license to use and copy this software and its documentation solely for your internal non-commercial research and evaluation purposes, without fee and without a signed licensing agreement, is hereby granted upon your download of the software, through which you agree to the following: 1) the above copyright notice, this paragraph and the following three paragraphs will prominently appear in all internal copies and modifications; 2) no rights to sublicense or further distribute this software are granted; 3) no rights to modify this software are granted; and 4) no rights to assign this license are granted. Please contact the NYU Technology Opportunities and Ventures Office at TOVCommunications@nyulangone.org for commercial licensing opportunities, or for further distribution, modification or license rights.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Created by Shijie Li. 
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+ 
+
+IN NO EVENT SHALL NYU, OR THEIR EMPLOYEES, OFFICERS, AGENTS OR TRUSTEES  ("COLLECTIVELY "NYU PARTIES") BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES OF ANY KIND, INCLUDING LOST PROFITS, ARISING OUT OF ANY CLAIM RESULTING FROM YOUR USE OF THIS SOFTWAREE AND ITS  DOCUMENTATION, EVEN IF ANY OF NYU PARTIES HAS BEEN ADVISED OF THE POSSIBILITY  OF SUCH CLAIM OR DAMAGE. 
+
+NYU SPECIFICALLY DISCLAIMS ANY WARRANTIES OF ANY KIND REGARDING THE SOFTWARE,INCLUDING, BUT NOT LIMITED TO, NON-INFRINGEMENT, THE IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE, OR THE ACCURACY OR USEFULNESS, OR COMPLETENESS OF THE SOFTWARE. THE SOFTWARE AND ACCOMPANYING DOCUMENTATION, IF ANY, PROVIDED HEREUNDER IS PROVIDED COMPLETELY "AS IS". NYU HAS NO OBLIGATION TO PROVIDE FURTHER DOCUMENTATION, MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS. 
+
+If you use this resource, cite: 
+@inproceedings{li12023microscopy,
+  title={Microscopy Image Segmentation via Point and Shape Regularized Data Synthesis},
+  author={Li$^1$, Shijie and Ren$^1$, Mengwei and Ach, Thomas and Gerig$^1$, Guido},
+  booktitle={Data Augmentation, Labelling, and Imperfections: Third MICCAI Workshop, DALI 2023, Held in Conjunction with MICCAI 2023, Vancouver, BC, Canada, October 12, 2023, Proceedings},
+  pages={23},
+  year={2023},
+  organization={Springer Nature}
+}
